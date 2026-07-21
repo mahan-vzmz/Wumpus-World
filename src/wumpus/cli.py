@@ -9,6 +9,8 @@ from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
 from wumpus.dataset import DatasetConfig, generate_dataset, save_dataset, split_dataset
 from wumpus.engine import compute_score
+from wumpus.evaluation.benchmark import generate_summary_table, run_benchmark_suite
+from wumpus.evaluation.suite_generator import generate_map_suite
 from wumpus.ml import save_model, train_models
 from wumpus.parser import InputFormatError, parse_input
 
@@ -74,6 +76,12 @@ def main() -> int:
     train_parser.add_argument("--data-dir", type=str, default="data/processed", help="Path to dataset directory")
     train_parser.add_argument("--output-dir", type=str, default="artifacts/models", help="Output directory for saved models")
 
+    # Command: benchmark
+    bench_parser = subparsers.add_parser("benchmark", help="Run comprehensive benchmark comparing all agents")
+    bench_parser.add_argument("--maps-dir", type=str, default="data/maps/test_suite", help="Path to test maps suite")
+    bench_parser.add_argument("--results-dir", type=str, default="results", help="Path to save benchmark CSV results")
+    bench_parser.add_argument("--generate-suite", action="store_true", help="Generate 20 test maps across 5 categories first")
+
     args = parser.parse_args()
 
     if args.command == "dataset":
@@ -111,6 +119,43 @@ def main() -> int:
         rf_path = out_dir / "random_forest.joblib"
         save_model(results["models"]["random_forest"], rf_path)
         print(f"\nSaved main Random Forest model to '{rf_path}'.")
+        return 0
+
+    elif args.command == "benchmark":
+        maps_path = Path(args.maps_dir)
+        if args.generate_suite or not maps_path.exists() or not list(maps_path.glob("*.txt")):
+            print("Generating test suite maps across 5 categories...")
+            generate_map_suite(maps_path, base_seed=500)
+            print(f"20 test maps generated at '{maps_path}'.")
+
+        res_path = Path(args.results_dir)
+        print(f"\nRunning benchmark suite on all maps in '{maps_path}'...")
+        rows = run_benchmark_suite(maps_path, res_path, seed=42)
+
+        summary = generate_summary_table(rows)
+
+        print("\n" + "=" * 80)
+        print("🏆 WUMPUS WORLD BENCHMARK COMPARISON SUMMARY")
+        print("=" * 80)
+        header = f"{'Agent':12s} | {'Visibility':10s} | {'Win Rate':10s} | {'Mean Score':10s} | {'Mean Steps':10s} | {'Pit Entries':11s} | {'Wumpus Deaths':13s} | {'Runtime (ms)':12s}"
+        print(header)
+        print("-" * 80)
+
+        for agent_name, stats in summary.items():
+            line = (
+                f"{agent_name:12s} | "
+                f"{stats['visibility']:10s} | "
+                f"{stats['win_rate_pct']:8.1f}% | "
+                f"{stats['mean_score']:10.1f} | "
+                f"{stats['mean_steps']:10.1f} | "
+                f"{stats['total_pits']:11d} | "
+                f"{stats['wumpus_deaths']:13d} | "
+                f"{stats['mean_runtime_ms']:12.2f}"
+            )
+            print(line)
+
+        print("=" * 80)
+        print(f"Raw results saved to '{res_path / 'benchmark_results.csv'}'.")
         return 0
 
     input_path = Path(args.input)
