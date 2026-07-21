@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | E0 — قرارداد مسئله | تکمیل‌شده | Spec v1.0 Frozen |
 | E1 — هستهٔ بازی | ✅ تکمیل‌شده | parser + engine + observation + event log |
-| E2 — زیرساخت عامل | مسدود به E1 | API و runner |
+| E2 — زیرساخت عامل | ✅ تکمیل‌شده | API و runner |
 | E3 — جست‌وجو | مسدود به E2 | SearchAgent |
 | E4 — استدلال | مسدود به E2 | RuleAgent |
 | E5 — یادگیری | مسدود به E3/E4 | Dataset و MLAgent |
@@ -100,28 +100,28 @@
 
 ## E2 — رابط و اجرای عامل
 
-### [ ] T200 — تعریف Agent API
+### [x] T200 — تعریف Agent API
 
 - **وابستگی:** E1
 - **زمان:** ۱–۱٫۵ ساعت
 - **کار:** Protocol/ABC، lifecycle و قرارداد خطای action.
 - **پذیرش:** موتور import وابستگی ML یا agent خاص نداشته باشد.
 
-### [ ] T201 — runner و محدودیت episode
+### [x] T201 — runner و محدودیت episode
 
 - **وابستگی:** T200
 - **زمان:** ۱٫۵–۲ ساعت
 - **کار:** reset، حلقهٔ observation-action-transition، seed، timeout/step limit و Result.
 - **پذیرش:** خطای agent به نتیجهٔ ساخت‌یافته تبدیل شود و کل batch را متوقف نکند.
 
-### [ ] T202 — عامل تصادفی و baseline حریصانه
+### [x] T202 — عامل تصادفی و baseline حریصانه
 
 - **وابستگی:** T201
 - **زمان:** ۱–۲ ساعت
 - **کار:** RandomAgent فقط با legal action و GreedyExitAgent با فاصلهٔ Manhattan.
 - **پذیرش:** هر دو از CLI قابل‌تعویض و با seed تکرارپذیر باشند.
 
-### [ ] T203 — CLI اولیه
+### [x] T203 — CLI اولیه
 
 - **وابستگی:** T201, T202
 - **زمان:** ۱–۲ ساعت
