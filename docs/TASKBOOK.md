@@ -17,7 +17,7 @@
 | E2 — زیرساخت عامل | ✅ تکمیل‌شده | API و runner |
 | E3 — جست‌وجو | ✅ تکمیل‌شده | SearchAgent |
 | E4 — استدلال | ✅ تکمیل‌شده | RuleAgent |
-| E5 — یادگیری | مسدود به E3/E4 | Dataset و MLAgent |
+| E5 — یادگیری | ✅ تکمیل‌شده | Dataset و MLAgent |
 | E6 — ارزیابی | مسدود به E3–E5 | نتایج و تحلیل |
 | E7 — تحویل | مسدود به E6 | بستهٔ نهایی |
 
@@ -218,56 +218,56 @@
 
 ## E5 — دیتاست و یادگیری
 
-### [ ] T500 — مولد نقشهٔ معتبر
+### [x] T500 — مولد نقشهٔ معتبر
 
 - **وابستگی:** E1, E3
 - **زمان:** ۲–۴ ساعت
 - **کار:** generation با seed، قیود عدم overlap و بررسی solvability.
 - **پذیرش:** ۱۰۰ نقشه با seed ثابت دقیقاً بازتولید شوند.
 
-### [ ] T501 — schema ویژگی و encoder
+### [x] T501 — schema ویژگی و encoder
 
 - **وابستگی:** E4
 - **زمان:** ۲–۳ ساعت
 - **کار:** تبدیل observation/history/knowledge به بردار نسخه‌دار.
 - **پذیرش:** encoder هیچ hidden truth نخواند؛ shape و ترتیب feature ثابت باشد.
 
-### [ ] T502 — تولید demonstrationهای خبره
+### [x] T502 — تولید demonstrationهای خبره
 
 - **وابستگی:** T500, T501
 - **زمان:** ۲–۴ ساعت
 - **کار:** اجرای teacher، ثبت feature/label/legal mask/map_id و نمونه‌های recovery.
 - **پذیرش:** همهٔ labelها قانونی و metadata کامل باشند.
 
-### [ ] T503 — split و audit نشت
+### [x] T503 — split و audit نشت
 
 - **وابستگی:** T502
 - **زمان:** ۱–۲ ساعت
 - **کار:** تقسیم map-level و گزارش توزیع کلاس‌ها.
 - **پذیرش:** اشتراک map_id بین splitها صفر باشد.
 
-### [ ] T504 — baseline و Decision Tree
+### [x] T504 — baseline و Decision Tree
 
 - **وابستگی:** T503
 - **زمان:** ۲–۳ ساعت
 - **کار:** majority baseline، tree محدود و معیارهای validation.
 - **پذیرش:** نتیجه از baseline گزارش و overfit بررسی شود.
 
-### [ ] T505 — Random Forest و انتخاب مدل
+### [x] T505 — Random Forest و انتخاب مدل
 
 - **وابستگی:** T504
 - **زمان:** ۲–۴ ساعت
 - **کار:** جست‌وجوی کوچک hyperparameter فقط روی train/validation.
 - **پذیرش:** دلیل انتخاب مدل با macro-F1 و rollout validation ثبت شود.
 
-### [ ] T506 — MLAgent و ذخیره/بارگذاری
+### [x] T506 — MLAgent و ذخیره/بارگذاری
 
 - **وابستگی:** T505
 - **زمان:** ۲–۳ ساعت
 - **کار:** inference، legal mask، fallback، serialization و schema check.
 - **پذیرش:** process تازه مدل را load و یک episode کامل اجرا کند.
 
-### [ ] T507 — ارزیابی نهایی test
+### [x] T507 — ارزیابی نهایی test
 
 - **وابستگی:** T506
 - **زمان:** ۱–۲ ساعت
