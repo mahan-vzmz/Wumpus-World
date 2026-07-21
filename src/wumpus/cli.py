@@ -4,6 +4,7 @@ from pathlib import Path
 
 from wumpus.agents.greedy_agent import GreedyExitAgent
 from wumpus.agents.random_agent import RandomAgent
+from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
 from wumpus.engine import compute_score
 from wumpus.parser import InputFormatError, parse_input
@@ -17,6 +18,8 @@ def _create_agent(name: str, parsed):
         return GreedyExitAgent()
     elif name == "search":
         return SearchAgent()
+    elif name == "rules":
+        return RuleAgent()
     raise ValueError(f"Unknown agent: {name}")
 
 
@@ -45,8 +48,9 @@ def main() -> int:
     # Command: run
     run_parser = subparsers.add_parser("run", help="Run an agent on a map")
     run_parser.add_argument("--input", required=True, type=str, help="Path to the map file")
-    run_parser.add_argument("--agent", choices=["random", "greedy", "search"], default="random", help="Which agent to run")
+    run_parser.add_argument("--agent", choices=["random", "greedy", "search", "rules"], default="random", help="Which agent to run")
     run_parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    run_parser.add_argument("--trace", action="store_true", help="Print reasoning trace (for rule agent)")
 
     args = parser.parse_args()
     input_path = Path(args.input)
@@ -83,7 +87,7 @@ def main() -> int:
         # Reset agent manually so we can pass the right public_map_info
         agent.reset(parsed.config, public_info, args.seed)
 
-        # Run via engine directly (not runner, so we control public_info)
+        # Run via engine directly
         from wumpus.engine import init_state, step
         from wumpus.observation import make_observation
         from wumpus.domain import Status
@@ -117,6 +121,14 @@ def main() -> int:
                 print(f"Expanded nodes: {sr.expanded_nodes}")
                 print(f"Peak frontier: {sr.peak_frontier}")
                 print(f"Planning time: {sr.planning_time_ms:.2f} ms")
+
+        # Show reasoning trace if rules agent and --trace requested
+        if args.agent == "rules" and args.trace and hasattr(agent, "reasoning_log"):
+            print(f"\n--- Reasoning Trace ({len(agent.reasoning_log)} steps) ---")
+            for step_idx, log_lines in enumerate(agent.reasoning_log, start=1):
+                print(f"  [Step {step_idx}]")
+                for line in log_lines:
+                    print(f"    {line}")
 
         return 0
 
