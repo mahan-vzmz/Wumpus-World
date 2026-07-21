@@ -4,16 +4,31 @@ from pathlib import Path
 
 from wumpus.agents.greedy_agent import GreedyExitAgent
 from wumpus.agents.random_agent import RandomAgent
+from wumpus.agents.search_agent import SearchAgent
+from wumpus.engine import compute_score
 from wumpus.parser import InputFormatError, parse_input
 from wumpus.runner import run_episode
 
 
-def _create_agent(name: str):
+def _create_agent(name: str, parsed):
     if name == "random":
         return RandomAgent()
     elif name == "greedy":
         return GreedyExitAgent()
+    elif name == "search":
+        return SearchAgent()
     raise ValueError(f"Unknown agent: {name}")
+
+
+def _get_public_map_info(agent_name: str, parsed):
+    """Build public_map_info dict. SearchAgent gets the full map."""
+    info = {
+        "grid_size": parsed.config.grid_size,
+        "exit_position": parsed.config.exit_position,
+    }
+    if agent_name == "search":
+        info["game_map"] = parsed.game_map
+    return info
 
 
 def main() -> int:
@@ -30,7 +45,7 @@ def main() -> int:
     # Command: run
     run_parser = subparsers.add_parser("run", help="Run an agent on a map")
     run_parser.add_argument("--input", required=True, type=str, help="Path to the map file")
-    run_parser.add_argument("--agent", choices=["random", "greedy"], default="random", help="Which agent to run")
+    run_parser.add_argument("--agent", choices=["random", "greedy", "search"], default="random", help="Which agent to run")
     run_parser.add_argument("--seed", type=int, default=42, help="Random seed")
 
     args = parser.parse_args()
@@ -58,29 +73,55 @@ def main() -> int:
         return 0
 
     elif args.command == "run":
-        agent = _create_agent(args.agent)
+        agent = _create_agent(args.agent, parsed)
+
+        # Build public_map_info (search agent gets full map)
+        public_info = _get_public_map_info(args.agent, parsed)
+
         print(f"Running '{args.agent}' agent on '{input_path.name}' with seed {args.seed}...")
-        
-        result = run_episode(agent, parsed.game_map, parsed.config, seed=args.seed)
-        
+
+        # Reset agent manually so we can pass the right public_map_info
+        agent.reset(parsed.config, public_info, args.seed)
+
+        # Run via engine directly (not runner, so we control public_info)
+        from wumpus.engine import init_state, step
+        from wumpus.observation import make_observation
+        from wumpus.domain import Status
+
+        state = init_state(parsed.game_map, parsed.config)
+        while state.status == Status.RUNNING:
+            obs = make_observation(parsed.game_map, parsed.config, state)
+            action = agent.choose_action(obs)
+            state = step(parsed.game_map, parsed.config, state, action)
+
         print("\n--- Event Log ---")
-        for event in result.state.event_log:
+        for event in state.event_log:
             print(f"  {event}")
-        
+
         print("\n--- Results ---")
-        print(f"Status: {result.state.status.value}")
-        print(f"Steps taken: {result.state.steps}")
-        print(f"Health remaining: {result.state.health}")
-        print(f"Gold collected: {result.state.collected_gold}")
-        print(f"Pit entries: {result.state.pit_entries}")
-        
-        if result.error:
-            print(f"\nAGENT ERROR: {result.error}")
-            return 1
-            
+        print(f"Status: {state.status.value}")
+        print(f"Steps taken: {state.steps}")
+        print(f"Health remaining: {state.health}")
+        print(f"Gold collected: {state.collected_gold}")
+        print(f"Pit entries: {state.pit_entries}")
+
+        if state.status == Status.WON:
+            score = compute_score(state, parsed.config)
+            print(f"Final score: {score}")
+
+        # Show A* diagnostics if search agent
+        if args.agent == "search" and hasattr(agent, "search_result"):
+            sr = agent.search_result
+            if sr:
+                print(f"\n--- A* Diagnostics ---")
+                print(f"Expanded nodes: {sr.expanded_nodes}")
+                print(f"Peak frontier: {sr.peak_frontier}")
+                print(f"Planning time: {sr.planning_time_ms:.2f} ms")
+
         return 0
 
     return 1
 
 if __name__ == "__main__":
     sys.exit(main())
+
