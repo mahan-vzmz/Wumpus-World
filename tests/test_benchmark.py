@@ -13,12 +13,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from wumpus.ai.ml import MajorityBaseline, save_model
 from wumpus.evaluation.benchmark import (
     generate_summary_table,
     run_benchmark_suite,
 )
 from wumpus.evaluation.suite_generator import generate_map_suite
-from wumpus.ai.ml import MajorityBaseline, save_model
 
 
 def _write_test_model(path: Path) -> Path:
