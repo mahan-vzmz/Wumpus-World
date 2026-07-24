@@ -61,19 +61,22 @@ $$\text{Final Score} = \text{Remaining Health} + (\text{Collected Gold} \times \
 
 ```text
 src/wumpus/
-├── domain.py         # اشیای غیرقابل‌تغییر دامنه (Position, GameMap, Status, GameConfig)
-├── engine.py         # موتور اصلی بازی و منطق قطعی انتقال (step)
-├── parser.py         # اعتبارسنجی و خواندن فایل متنی نقشه
-├── observation.py    # ساخت ادراک‌های عامل بدون افشای نقشه پنهان
-├── search.py         # هسته جست‌وجوی A* و هیوریستیک مقبول
-├── knowledge.py       # پایگاه دانش منطقی و استنتاج پیش‌رو (Forward Chaining)
-├── encoder.py         # کدکننده ویژگی‌های عددی برای یادگیری ماشین (۳۹۷ ویژگی)
-├── dataset.py         # تولید داده از خبره و تقسیم‌بندی بدون نشت داده
-├── ml.py              # آموزش مدل‌های Random Forest / Decision Tree و Action Masking
-├── generator.py       # مولد نقشه‌های تصادفی معتبر و تضمین‌شده از نظر حل‌پذیری
-├── runner.py          # حلقه شبیه‌سازی و مدیریت خطاهای عامل
-├── cli.py             # رابط خط فرمان کاربر (CLI)
-└── agents/            # پیاده‌سازی عامل‌ها (Search, Rule, ML, Greedy, Random)
+├── core/                  # 🟢 هسته شبیه‌ساز و قوانین محیط
+│   ├── domain.py          # اشیای غیرقابل‌تغییر دامنه (Position, GameMap, Status, GameConfig)
+│   ├── engine.py          # موتور اصلی بازی و منطق قطعی انتقال (step)
+│   ├── observation.py     # ساخت ادراک‌های عامل بدون افشای نقشه پنهان
+│   ├── parser.py          # اعتبارسنجی و خواندن فایل متنی نقشه
+│   ├── generator.py       # مولد نقشه‌های تصادفی معتبر و تضمین‌شده
+│   └── runner.py          # حلقه شبیه‌سازی و مدیریت خطاهای عامل
+├── ai/                    # 🔵 الگوریتم‌های هوش مصنوعی و پردازش داده
+│   ├── search.py          # هسته جست‌وجوی A* و هیوریستیک مقبول
+│   ├── knowledge.py       # پایگاه دانش منطقی و استنتاج پیش‌رو (Forward Chaining)
+│   ├── encoder.py         # کدکننده ویژگی‌های عددی برای یادگیری ماشین (۳۹۷ ویژگی)
+│   ├── dataset.py         # تولید داده از خبره و تقسیم‌بندی بدون نشت داده
+│   └── ml.py              # آموزش مدل‌های Random Forest / Decision Tree و Action Masking
+├── agents/                # 🟣 پیاده‌سازی عامل‌ها (Search, Rule, ML, Greedy, Random)
+├── evaluation/            # 🟡 ماژول‌های ارزیابی، تولید suite و بنچمارک
+└── cli.py                 # رابط خط فرمان کاربر (CLI)
 ```
 
 ---

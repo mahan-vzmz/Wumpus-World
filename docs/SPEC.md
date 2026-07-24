@@ -362,21 +362,34 @@ wumpus-world/
 │   ├── SPEC.md
 │   └── TASKBOOK.md
 ├── src/wumpus/
-│   ├── domain.py
-│   ├── parser.py
-│   ├── engine.py
-│   ├── observation.py
-│   ├── runner.py
-│   ├── cli.py
+│   ├── core/
+│   │   ├── domain.py
+│   │   ├── engine.py
+│   │   ├── observation.py
+│   │   ├── parser.py
+│   │   ├── generator.py
+│   │   └── runner.py
+│   ├── ai/
+│   │   ├── search.py
+│   │   ├── knowledge.py
+│   │   ├── encoder.py
+│   │   ├── dataset.py
+│   │   └── ml.py
 │   ├── agents/
 │   │   ├── base.py
 │   │   ├── random_agent.py
+│   │   ├── greedy_agent.py
 │   │   ├── search_agent.py
 │   │   ├── rule_agent.py
 │   │   └── ml_agent.py
-│   ├── dataset/
-│   └── evaluation/
+│   ├── evaluation/
+│   │   ├── benchmark.py
+│   │   └── suite_generator.py
+│   └── cli.py
 ├── tests/
+│   ├── core/
+│   ├── ai/
+│   └── test_benchmark.py
 ├── artifacts/models/
 └── results/
 ```
