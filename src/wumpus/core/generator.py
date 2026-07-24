@@ -14,8 +14,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from wumpus.domain import GameConfig, GameMap, Position, Tile
-from wumpus.search import solve_astar
+from wumpus.ai.search import solve_astar
+from wumpus.core.domain import GameConfig, GameMap, Position, Tile
 
 
 @dataclass(frozen=True)

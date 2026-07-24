@@ -23,7 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from wumpus.domain import Action, Position
+from wumpus.core.domain import Action, Position
 
 
 class CellStatus(Enum):

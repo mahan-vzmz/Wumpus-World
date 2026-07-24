@@ -22,10 +22,10 @@ from wumpus.agents.ml_agent import MLAgent
 from wumpus.agents.random_agent import RandomAgent
 from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
-from wumpus.domain import Status
-from wumpus.engine import compute_diagnostic_score, compute_score
-from wumpus.parser import parse_input
-from wumpus.runner import run_episode
+from wumpus.core.domain import Status
+from wumpus.core.engine import compute_diagnostic_score, compute_score
+from wumpus.core.parser import parse_input
+from wumpus.core.runner import run_episode
 
 
 @dataclass

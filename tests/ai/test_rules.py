@@ -12,12 +12,12 @@ Covers:
 from pathlib import Path
 
 from wumpus.agents.rule_agent import RuleAgent
-from wumpus.domain import Action, GameConfig, Position, Status
-from wumpus.knowledge import CellStatus, KnowledgeBase
-from wumpus.parser import parse_input
-from wumpus.runner import run_episode
+from wumpus.ai.knowledge import CellStatus, KnowledgeBase
+from wumpus.core.domain import Action, GameConfig, Position, Status
+from wumpus.core.parser import parse_input
+from wumpus.core.runner import run_episode
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 
 def _default_config(exit_pos: Position = Position(7, 7), health: int = 50) -> GameConfig:

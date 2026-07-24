@@ -19,8 +19,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, recall_score
 from sklearn.tree import DecisionTreeClassifier
 
-from wumpus.domain import Action
-from wumpus.encoder import FEATURE_VERSION
+from wumpus.ai.encoder import FEATURE_VERSION
+from wumpus.core.domain import Action
 
 
 class MajorityBaseline:

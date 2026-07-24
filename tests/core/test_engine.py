@@ -5,8 +5,8 @@ Golden examples are verified step-by-step against GOLDEN_EXAMPLES.md.
 
 import pytest
 
-from wumpus.domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
-from wumpus.engine import (
+from wumpus.core.domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
+from wumpus.core.engine import (
     compute_diagnostic_score,
     compute_score,
     init_state,

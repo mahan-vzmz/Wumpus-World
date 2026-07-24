@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from wumpus.agents.base import Agent
-from wumpus.domain import Action, GameConfig
-from wumpus.encoder import encode_observation
-from wumpus.knowledge import KnowledgeBase
-from wumpus.ml import load_model, predict_masked_action
-from wumpus.observation import Observation
+from wumpus.ai.encoder import encode_observation
+from wumpus.ai.knowledge import KnowledgeBase
+from wumpus.ai.ml import load_model, predict_masked_action
+from wumpus.core.domain import Action, GameConfig
+from wumpus.core.observation import Observation
 
 
 class MLAgent(Agent):

@@ -10,13 +10,13 @@ Covers:
 from pathlib import Path
 
 from wumpus.agents.search_agent import SearchAgent
-from wumpus.domain import GameConfig, GameMap, Position, Status, Tile
-from wumpus.engine import compute_score, init_state, step
-from wumpus.parser import parse_input
-from wumpus.runner import run_episode
-from wumpus.search import _manhattan, solve_astar
+from wumpus.ai.search import _manhattan, solve_astar
+from wumpus.core.domain import GameConfig, GameMap, Position, Status, Tile
+from wumpus.core.engine import compute_score, init_state, step
+from wumpus.core.parser import parse_input
+from wumpus.core.runner import run_episode
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 
 # ---------------------------------------------------------------------------

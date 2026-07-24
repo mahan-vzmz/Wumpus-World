@@ -18,7 +18,7 @@ from wumpus.evaluation.benchmark import (
     run_benchmark_suite,
 )
 from wumpus.evaluation.suite_generator import generate_map_suite
-from wumpus.ml import MajorityBaseline, save_model
+from wumpus.ai.ml import MajorityBaseline, save_model
 
 
 def _write_test_model(path: Path) -> Path:

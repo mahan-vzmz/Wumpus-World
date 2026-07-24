@@ -3,9 +3,9 @@
 from typing import Any
 
 from wumpus.agents.search_agent import SearchAgent
-from wumpus.domain import Action, GameConfig, Status
-from wumpus.parser import parse_input
-from wumpus.runner import run_episode
+from wumpus.core.domain import Action, GameConfig, Status
+from wumpus.core.parser import parse_input
+from wumpus.core.runner import run_episode
 
 EMPTY_MAP = """\
 ********

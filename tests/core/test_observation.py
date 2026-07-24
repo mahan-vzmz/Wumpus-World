@@ -5,9 +5,9 @@ corner/edge cases, diagonal non-effect, and no hidden info leak.
 """
 
 
-from wumpus.domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
-from wumpus.engine import init_state, step
-from wumpus.observation import make_observation
+from wumpus.core.domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
+from wumpus.core.engine import init_state, step
+from wumpus.core.observation import make_observation
 
 # ---------------------------------------------------------------------------
 # Helpers

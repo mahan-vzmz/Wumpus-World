@@ -1,4 +1,4 @@
-from wumpus.domain import Action, GameConfig, GameMap, Position, Tile
+from wumpus.core.domain import Action, GameConfig, GameMap, Position, Tile
 
 
 def test_position_movement_and_neighbors_are_deterministic() -> None:

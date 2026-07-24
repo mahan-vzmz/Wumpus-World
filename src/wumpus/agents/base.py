@@ -1,8 +1,8 @@
 import abc
 from typing import Any, Protocol
 
-from wumpus.domain import Action, GameConfig
-from wumpus.observation import Observation
+from wumpus.core.domain import Action, GameConfig
+from wumpus.core.observation import Observation
 
 
 class Agent(Protocol):

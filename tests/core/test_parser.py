@@ -1,7 +1,7 @@
 import pytest
 
-from wumpus.domain import Position, Tile
-from wumpus.parser import InputFormatError, parse_input
+from wumpus.core.domain import Position, Tile
+from wumpus.core.parser import InputFormatError, parse_input
 
 VALID_INPUT = """********
 **D*****

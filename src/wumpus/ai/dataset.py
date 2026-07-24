@@ -14,19 +14,19 @@ from pathlib import Path
 
 import numpy as np
 
-from wumpus.domain import Action, Status
-from wumpus.encoder import (
+from wumpus.ai.encoder import (
     FEATURE_NAMES,
     FEATURE_VERSION,
     action_to_label,
     encode_observation,
     label_to_action,
 )
-from wumpus.engine import init_state, step
-from wumpus.generator import MapGenerationConfig, generate_map
-from wumpus.knowledge import KnowledgeBase
-from wumpus.observation import make_observation
-from wumpus.search import solve_astar
+from wumpus.ai.knowledge import KnowledgeBase
+from wumpus.ai.search import solve_astar
+from wumpus.core.domain import Action, Status
+from wumpus.core.engine import init_state, step
+from wumpus.core.generator import MapGenerationConfig, generate_map
+from wumpus.core.observation import make_observation
 
 DEFAULT_MAP_PROFILES: tuple[MapGenerationConfig, ...] = (
     MapGenerationConfig(

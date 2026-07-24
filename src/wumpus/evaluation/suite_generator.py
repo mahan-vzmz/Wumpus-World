@@ -14,7 +14,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from wumpus.generator import MapGenerationConfig, generate_map
+from wumpus.core.generator import MapGenerationConfig, generate_map
 
 
 @dataclass

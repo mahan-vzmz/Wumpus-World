@@ -23,9 +23,9 @@ from collections import deque
 from typing import Any
 
 from wumpus.agents.base import Agent
-from wumpus.domain import Action, GameConfig, Position
-from wumpus.knowledge import KnowledgeBase
-from wumpus.observation import Observation
+from wumpus.ai.knowledge import KnowledgeBase
+from wumpus.core.domain import Action, GameConfig, Position
+from wumpus.core.observation import Observation
 
 
 def _manhattan(a: Position, b: Position) -> int:

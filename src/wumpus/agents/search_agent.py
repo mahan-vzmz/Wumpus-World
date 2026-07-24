@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import Any
 
 from wumpus.agents.base import Agent
-from wumpus.domain import Action, GameConfig, GameMap
-from wumpus.observation import Observation
-from wumpus.search import SearchResult, solve_astar
+from wumpus.ai.search import SearchResult, solve_astar
+from wumpus.core.domain import Action, GameConfig, GameMap
+from wumpus.core.observation import Observation
 
 
 class SearchAgent(Agent):

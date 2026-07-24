@@ -2,8 +2,8 @@ import random
 from typing import Any
 
 from wumpus.agents.base import Agent
-from wumpus.domain import Action, GameConfig, Position
-from wumpus.observation import Observation
+from wumpus.core.domain import Action, GameConfig, Position
+from wumpus.core.observation import Observation
 
 
 def manhattan_distance(p1: Position, p2: Position) -> int:

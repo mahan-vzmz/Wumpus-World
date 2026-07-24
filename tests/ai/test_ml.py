@@ -16,21 +16,22 @@ from pathlib import Path
 import numpy as np
 
 from wumpus.agents.ml_agent import MLAgent
-from wumpus.dataset import DatasetConfig, generate_dataset, split_dataset
-from wumpus.domain import GameConfig, GameMap, Status
-from wumpus.encoder import FEATURE_NAMES, encode_observation
-from wumpus.generator import generate_map
-from wumpus.knowledge import KnowledgeBase
-from wumpus.ml import (
+from wumpus.ai.dataset import DatasetConfig, generate_dataset, split_dataset
+from wumpus.ai.encoder import FEATURE_NAMES, encode_observation
+from wumpus.ai.knowledge import KnowledgeBase
+from wumpus.ai.ml import (
     evaluate_classifier,
     load_model,
     predict_masked_action,
     save_model,
     train_models,
 )
-from wumpus.observation import make_observation
-from wumpus.runner import run_episode
-from wumpus.search import solve_astar
+from wumpus.ai.search import solve_astar
+from wumpus.core.domain import GameConfig, GameMap, Status
+from wumpus.core.engine import init_state
+from wumpus.core.generator import generate_map
+from wumpus.core.observation import make_observation
+from wumpus.core.runner import run_episode
 
 
 class TestMapGenerator:
@@ -49,7 +50,6 @@ class TestEncoder:
     def test_feature_vector_shape(self):
         """Encoder output must have shape (397,) matching FEATURE_NAMES."""
         gmap, config = generate_map(seed=42)
-        from wumpus.engine import init_state
         state = init_state(gmap, config)
         obs = make_observation(gmap, config, state)
         kb = KnowledgeBase(grid_size=config.grid_size)
@@ -142,7 +142,6 @@ class TestMLModels:
         res = train_models(train, val)
         rf_model = res["models"]["random_forest"]
 
-        from wumpus.engine import init_state
         state = init_state(gmap, config)
         obs = make_observation(gmap, config, state)
         kb = KnowledgeBase(grid_size=config.grid_size)

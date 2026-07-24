@@ -27,7 +27,7 @@ import time
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from wumpus.domain import Action, GameConfig, GameMap, Position, Tile
+from wumpus.core.domain import Action, GameConfig, GameMap, Position, Tile
 
 # ---------------------------------------------------------------------------
 # Search state (hashable, used as dict key)

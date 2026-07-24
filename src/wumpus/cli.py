@@ -8,14 +8,14 @@ from wumpus.agents.ml_agent import MLAgent
 from wumpus.agents.random_agent import RandomAgent
 from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
-from wumpus.dataset import DatasetConfig, generate_dataset, save_dataset, split_dataset
-from wumpus.domain import Status
-from wumpus.engine import compute_score
+from wumpus.ai.dataset import DatasetConfig, generate_dataset, save_dataset, split_dataset
+from wumpus.ai.ml import evaluate_classifier, save_model, train_models
+from wumpus.core.domain import Status
+from wumpus.core.engine import compute_score
+from wumpus.core.parser import InputFormatError, parse_input
+from wumpus.core.runner import run_episode
 from wumpus.evaluation.benchmark import generate_summary_table, run_benchmark_suite
 from wumpus.evaluation.suite_generator import generate_map_suite
-from wumpus.ml import evaluate_classifier, save_model, train_models
-from wumpus.parser import InputFormatError, parse_input
-from wumpus.runner import run_episode
 
 
 def _create_agent(name: str, parsed, model_path: Path | None = None):
@@ -89,7 +89,7 @@ def main() -> int:
         return 0
 
     elif args.command == "train":
-        from wumpus.dataset import load_dataset
+        from wumpus.ai.dataset import load_dataset
         data_path = Path(args.data_dir)
         if not (data_path / "dataset.npz").is_file():
             print(f"Error: Dataset not found at '{data_path}'. Run 'dataset' command first.")

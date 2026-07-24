@@ -2,9 +2,9 @@ import time
 from dataclasses import dataclass
 
 from wumpus.agents.base import Agent
-from wumpus.domain import GameConfig, GameMap, GameState, Status
-from wumpus.engine import init_state, step
-from wumpus.observation import make_observation
+from wumpus.core.domain import GameConfig, GameMap, GameState, Status
+from wumpus.core.engine import init_state, step
+from wumpus.core.observation import make_observation
 
 
 @dataclass(frozen=True)

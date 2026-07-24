@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from wumpus.domain import Action, GameConfig, Position
-from wumpus.knowledge import CellStatus, KnowledgeBase
-from wumpus.observation import Observation
+from wumpus.ai.knowledge import CellStatus, KnowledgeBase
+from wumpus.core.domain import Action, GameConfig, Position
+from wumpus.core.observation import Observation
 
 FEATURE_VERSION = "v1"
 
