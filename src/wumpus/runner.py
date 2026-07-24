@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from wumpus.agents.base import Agent
 from wumpus.domain import GameConfig, GameMap, GameState, Status
-from wumpus.engine import compute_diagnostic_score, compute_score, init_state, step
+from wumpus.engine import init_state, step
 from wumpus.observation import make_observation
 
 
@@ -33,20 +33,21 @@ def run_episode(
     """
     start_time = time.perf_counter()
 
+    state = init_state(game_map, config)
+
     # اطلاعات مجاز برای عامل (public_map_info)
     public_map_info = {
         "grid_size": config.grid_size,
         "exit_position": config.exit_position,
     }
+    if getattr(agent, "requires_full_map", False):
+        public_map_info["game_map"] = game_map
 
     try:
         # ۱. راه‌اندازی عامل
         agent.reset(config, public_map_info, seed)
 
-        # ۲. مقداردهی اولیه موتور بازی
-        state = init_state(game_map, config)
-
-        # ۳. حلقهٔ اصلی بازی
+        # ۲. حلقهٔ اصلی بازی
         while state.status == Status.RUNNING:
             # ساخت مشاهده برای عامل
             obs = make_observation(game_map, config, state)
@@ -64,11 +65,9 @@ def run_episode(
     except Exception as e:
         # اگر خطایی از سمت عامل یا قوانین موتور رخ دهد، بازی فوراً متوقف می‌شود
         elapsed = (time.perf_counter() - start_time) * 1000.0
-        # ایجاد یک وضعیت ساختگی برای نشان‌دادن توقف ناگهانی
-        if 'state' not in locals():
-            # خطای پیش از مقداردهی state
-            state = GameState(position=config.exit_position, health=0)
-        
+        state.status = Status.AGENT_ERROR
+        state.event_log.append(f"AGENT_ERROR: {e}")
+
         return RunResult(state=state, error=str(e), runtime_ms=elapsed)
 
     elapsed = (time.perf_counter() - start_time) * 1000.0

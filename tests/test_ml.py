@@ -10,19 +10,19 @@ Covers:
   T506 — Legal action masking, model save/load, and MLAgent execution
 """
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
 import numpy as np
-import pytest
 
 from wumpus.agents.ml_agent import MLAgent
 from wumpus.dataset import DatasetConfig, generate_dataset, split_dataset
-from wumpus.domain import Action, GameConfig, GameMap, Position
+from wumpus.domain import GameConfig, GameMap, Status
 from wumpus.encoder import FEATURE_NAMES, encode_observation
-from wumpus.generator import MapGenerationConfig, generate_map
+from wumpus.generator import generate_map
 from wumpus.knowledge import KnowledgeBase
 from wumpus.ml import (
-    MajorityBaseline,
+    evaluate_classifier,
     load_model,
     predict_masked_action,
     save_model,
@@ -83,6 +83,12 @@ class TestDatasetAndSplit:
         assert len(train_maps & test_maps) == 0
         assert len(val_maps & test_maps) == 0
 
+    def test_dataset_generates_exact_requested_map_count(self):
+        config = DatasetConfig(num_maps=12, seed=1200)
+        data = generate_dataset(config)
+
+        assert len(np.unique(data["map_ids"])) == 12
+
 
 class TestMLModels:
 
@@ -100,6 +106,16 @@ class TestMLModels:
         assert "random_forest" in metrics
 
         assert 0.0 <= metrics["random_forest"]["accuracy"] <= 1.0
+
+        test_metrics = evaluate_classifier(res["models"]["random_forest"], test)
+        assert 0.0 <= test_metrics["accuracy"] <= 1.0
+        assert set(test_metrics["per_class_recall"]) == {
+            "UP",
+            "DOWN",
+            "LEFT",
+            "RIGHT",
+        }
+        assert len(test_metrics["confusion_matrix"]) == 4
 
     def test_legal_action_masking(self):
         """Action masking must never pick an illegal action."""
@@ -139,3 +155,12 @@ class TestMLModels:
             run_res = run_episode(agent, gmap, config, seed=42)
 
             assert run_res.state.steps > 0
+
+    def test_missing_model_fails_explicitly(self):
+        gmap, config = generate_map(seed=43)
+
+        result = run_episode(MLAgent(), gmap, config, seed=42)
+
+        assert result.state.status is Status.AGENT_ERROR
+        assert result.error is not None
+        assert "no trained model" in result.error

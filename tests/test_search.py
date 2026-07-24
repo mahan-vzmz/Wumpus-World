@@ -9,14 +9,12 @@ Covers:
 
 from pathlib import Path
 
-import pytest
-
 from wumpus.agents.search_agent import SearchAgent
-from wumpus.domain import Action, GameConfig, GameMap, Position, Status, Tile
+from wumpus.domain import GameConfig, GameMap, Position, Status, Tile
 from wumpus.engine import compute_score, init_state, step
 from wumpus.parser import parse_input
 from wumpus.runner import run_episode
-from wumpus.search import SearchResult, SearchState, _manhattan, solve_astar
+from wumpus.search import _manhattan, solve_astar
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -122,20 +120,29 @@ class TestAStarSolver:
         assert result.predicted_score == 26
         assert len(result.plan) == 14
 
-    def test_no_path_blocked(self):
-        """Completely walled-off exit — should return solved=False."""
+    def test_profitable_gold_detour_beats_nearby_exit(self):
+        """A* must compare terminal gold loss before accepting an exit node."""
         gmap = _map_from_strings([
             "********",
+            "*G******",
             "********",
             "********",
             "********",
             "********",
             "********",
-            "******D*",
-            "******D*",
+            "********",
         ])
-        # Exit at (7,7) is blocked by walls at (6,6) and (7,6)
-        # Actually we need to fully block it:
+        config = _default_config(exit_pos=Position(0, 2), health=50, gold_value=10)
+
+        result = solve_astar(gmap, config)
+
+        assert result.solved
+        assert result.predicted_score == 56
+        assert len(result.plan) == 4
+
+    def test_no_path_blocked(self):
+        """Completely walled-off exit — should return solved=False."""
+        # Exit at (7,7) is blocked by walls at (6,7) and (7,6).
         gmap2 = _map_from_strings([
             "********",
             "********",
@@ -279,24 +286,9 @@ class TestSearchAgentIntegration:
         """Helper: run SearchAgent on a fixture via the runner."""
         parsed = parse_input((FIXTURES / fixture_name).read_text())
         agent = SearchAgent()
-
-        # SearchAgent needs game_map in public_map_info
-        public_info = {
-            "grid_size": parsed.config.grid_size,
-            "exit_position": parsed.config.exit_position,
-            "game_map": parsed.game_map,
-        }
-
-        agent.reset(parsed.config, public_info, seed=42)
-        state = init_state(parsed.game_map, parsed.config)
-
-        while state.status == Status.RUNNING:
-            from wumpus.observation import make_observation
-            obs = make_observation(parsed.game_map, parsed.config, state)
-            action = agent.choose_action(obs)
-            state = step(parsed.game_map, parsed.config, state, action)
-
-        return state, parsed.config, agent
+        result = run_episode(agent, parsed.game_map, parsed.config, seed=42)
+        assert result.error is None
+        return result.state, parsed.config, agent
 
     def test_golden1_wins(self):
         state, config, agent = self._run_search_agent("golden1_straight.txt")

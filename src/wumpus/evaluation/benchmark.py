@@ -9,7 +9,10 @@ Per SPEC §11:
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
+import platform
+import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -42,6 +45,9 @@ class BenchmarkRow:
     pit_entries: int
     wumpus_death: bool
     runtime_ms: float
+    seed: int
+    expanded_nodes: int | None = None
+    peak_frontier: int | None = None
     error: str | None = None
 
 
@@ -83,7 +89,8 @@ def run_single_benchmark(
         error_msg = str(e)
         if 'state' not in locals():
             state = init_state(parsed.game_map, parsed.config)
-            state.status = Status.DEAD_HEALTH
+        state.status = Status.AGENT_ERROR
+        state.event_log.append(f"AGENT_ERROR: {e}")
 
     elapsed = (time.perf_counter() - t0) * 1000.0
 
@@ -91,6 +98,9 @@ def run_single_benchmark(
     score = compute_score(state, parsed.config)
     diag_score = compute_diagnostic_score(state, parsed.config)
     wumpus_death = state.status == Status.DEAD_WUMPUS
+    search_result = getattr(agent_obj, "search_result", None)
+    expanded_nodes = search_result.expanded_nodes if search_result else None
+    peak_frontier = search_result.peak_frontier if search_result else None
 
     return BenchmarkRow(
         map_name=map_path.name,
@@ -107,6 +117,9 @@ def run_single_benchmark(
         pit_entries=state.pit_entries,
         wumpus_death=wumpus_death,
         runtime_ms=elapsed,
+        seed=seed,
+        expanded_nodes=expanded_nodes,
+        peak_frontier=peak_frontier,
         error=error_msg,
     )
 
@@ -115,6 +128,8 @@ def run_benchmark_suite(
     maps_dir: Path,
     results_dir: Path,
     seed: int = 42,
+    model_path: Path | None = None,
+    include_ml: bool = True,
 ) -> list[BenchmarkRow]:
     """Run all 5 agents on all maps in maps_dir and save raw CSV/JSON results."""
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -127,18 +142,22 @@ def run_benchmark_suite(
 
     # Agent factory
     def get_agents():
-        ml_agent = MLAgent()
-        model_p = Path("artifacts/models/random_forest.joblib")
-        if model_p.is_file():
-            ml_agent.load(model_p)
-
-        return {
+        agents = {
             "search": SearchAgent(),
             "rules": RuleAgent(),
-            "ml": ml_agent,
             "greedy": GreedyExitAgent(),
             "random": RandomAgent(),
         }
+        if include_ml:
+            resolved_model = model_path or Path("artifacts/models/random_forest.joblib")
+            if not resolved_model.is_file():
+                raise FileNotFoundError(
+                    f"ML model not found at '{resolved_model}'. Run "
+                    "'python -m wumpus train' first, pass a model path, or "
+                    "disable ML for this benchmark."
+                )
+            agents["ml"] = MLAgent(model_path=resolved_model)
+        return agents
 
     agents = get_agents()
 
@@ -154,6 +173,37 @@ def run_benchmark_suite(
         writer.writeheader()
         for r in rows:
             writer.writerow(asdict(r))
+
+    json_path = results_dir / "benchmark_results.json"
+    json_path.write_text(
+        json.dumps([asdict(row) for row in rows], indent=2),
+        encoding="utf-8",
+    )
+
+    resolved_model = model_path or Path("artifacts/models/random_forest.joblib")
+    model_sha256 = None
+    if include_ml:
+        model_sha256 = hashlib.sha256(resolved_model.read_bytes()).hexdigest()
+
+    summary_path = results_dir / "benchmark_summary.json"
+    summary_path.write_text(
+        json.dumps(
+            {
+                "experiment": {
+                    "seed": seed,
+                    "map_count": len(map_files),
+                    "maps_dir": str(maps_dir),
+                    "include_ml": include_ml,
+                    "model_sha256": model_sha256,
+                    "python_version": platform.python_version(),
+                    "platform": sys.platform,
+                },
+                "summary": generate_summary_table(rows),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     return rows
 

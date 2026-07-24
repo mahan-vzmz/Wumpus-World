@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from .domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
 
-
 # ---------------------------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------------------------

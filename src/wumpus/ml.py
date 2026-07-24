@@ -16,11 +16,11 @@ from typing import Any
 import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, recall_score
 from sklearn.tree import DecisionTreeClassifier
 
 from wumpus.domain import Action
-from wumpus.encoder import FEATURE_VERSION, label_to_action
+from wumpus.encoder import FEATURE_VERSION
 
 
 class MajorityBaseline:
@@ -42,6 +42,41 @@ class MajorityBaseline:
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return np.full(len(X), self.majority_class, dtype=np.int64)
+
+
+def evaluate_classifier(
+    model: Any,
+    data: dict[str, np.ndarray],
+) -> dict[str, Any]:
+    """Return offline metrics for all four action classes."""
+    X, y_true = data["X"], data["y"]
+    if len(y_true) == 0:
+        raise ValueError("cannot evaluate a classifier on an empty split")
+
+    y_pred = model.predict(X)
+    labels = list(range(len(Action)))
+    recalls = recall_score(
+        y_true,
+        y_pred,
+        labels=labels,
+        average=None,
+        zero_division=0,
+    )
+    return {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "macro_f1": float(
+            f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        ),
+        "per_class_recall": {
+            action.value: float(recalls[index])
+            for index, action in enumerate(Action)
+        },
+        "confusion_matrix": confusion_matrix(
+            y_true,
+            y_pred,
+            labels=labels,
+        ).tolist(),
+    }
 
 
 def train_models(

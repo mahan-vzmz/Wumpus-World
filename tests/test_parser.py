@@ -3,7 +3,6 @@ import pytest
 from wumpus.domain import Position, Tile
 from wumpus.parser import InputFormatError, parse_input
 
-
 VALID_INPUT = """********
 **D*****
 *****G**

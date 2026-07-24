@@ -11,13 +11,9 @@ Covers:
 
 from pathlib import Path
 
-import pytest
-
 from wumpus.agents.rule_agent import RuleAgent
-from wumpus.domain import Action, GameConfig, GameMap, Position, Status, Tile
-from wumpus.engine import compute_score, init_state, step
+from wumpus.domain import Action, GameConfig, Position, Status
 from wumpus.knowledge import CellStatus, KnowledgeBase
-from wumpus.observation import make_observation
 from wumpus.parser import parse_input
 from wumpus.runner import run_episode
 

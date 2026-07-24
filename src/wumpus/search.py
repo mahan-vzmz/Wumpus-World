@@ -15,20 +15,19 @@ Search state: (position, health, remaining_gold_frozenset)
 - Gold cells remove the gold from remaining_gold.
 - The exit is the goal; reaching it adds terminal cost for uncollected gold.
 
-Heuristic (admissible): Manhattan distance from current position to exit.
-This is a lower bound on the movement cost (each step costs 1 health)
-and never overestimates because it ignores walls, pits, and missed gold.
+Heuristic (admissible): Manhattan distance from the current position to the
+exit.  At an exit state, the exact terminal cost of uncollected gold is used
+so that goal nodes are ordered by their complete loss before A* terminates.
 """
 
 from __future__ import annotations
 
 import heapq
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import NamedTuple
 
 from wumpus.domain import Action, GameConfig, GameMap, Position, Tile
-
 
 # ---------------------------------------------------------------------------
 # Search state (hashable, used as dict key)
@@ -118,10 +117,8 @@ def solve_astar(
     # Initial state — gold at start (0,0) is auto-collected per engine rules
     start_pos = Position(0, 0)
     start_gold = all_gold
-    start_collected = 0
     if start_pos in start_gold:
         start_gold = start_gold - {start_pos}
-        start_collected = 1
 
     start_state = SearchState(
         position=start_pos,
@@ -129,14 +126,15 @@ def solve_astar(
         remaining_gold=start_gold,
     )
 
-    # h: admissible heuristic
-    # Component 1: Manhattan distance to exit (lower bound on movement cost).
-    # Component 2: remaining_gold * gold_value — this is the EXACT terminal
-    #   cost if no more gold is collected. Collecting gold can only reduce
-    #   this term, so adding it never overestimates → still admissible.
+    # Admissible heuristic: Manhattan distance is a lower bound on movement
+    # cost.  A goal state's terminal cost must participate in heap ordering;
+    # otherwise A* could stop at a nearby exit while a profitable gold detour
+    # has a lower total loss.  For non-goal states we must not charge all
+    # remaining gold because some of it may still be collected.
     def h(s: SearchState) -> int:
-        return (_manhattan(s.position, exit_pos)
-                + len(s.remaining_gold) * config.gold_value)
+        if s.position == exit_pos:
+            return len(s.remaining_gold) * config.gold_value
+        return _manhattan(s.position, exit_pos)
 
     # g=0 at start (no loss incurred yet)
     start_node = _Node(f=h(start_state), tie=0, g=0, state=start_state,
@@ -205,7 +203,6 @@ def solve_astar(
             edge_cost = 1
 
             # Pit effect
-            new_pits = 0
             if tile is Tile.PIT:
                 new_health = max(1, new_health // 2)
                 edge_cost += pit_penalty  # score penalty from pit

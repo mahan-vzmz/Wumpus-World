@@ -9,17 +9,62 @@ Features:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
 import numpy as np
 
-from wumpus.domain import Action, GameConfig, GameMap, Status
-from wumpus.encoder import FEATURE_NAMES, FEATURE_VERSION, action_to_label, encode_observation
+from wumpus.domain import Action, Status
+from wumpus.encoder import (
+    FEATURE_NAMES,
+    FEATURE_VERSION,
+    action_to_label,
+    encode_observation,
+    label_to_action,
+)
 from wumpus.engine import init_state, step
 from wumpus.generator import MapGenerationConfig, generate_map
 from wumpus.knowledge import KnowledgeBase
 from wumpus.observation import make_observation
 from wumpus.search import solve_astar
+
+DEFAULT_MAP_PROFILES: tuple[MapGenerationConfig, ...] = (
+    MapGenerationConfig(
+        num_pits=0,
+        num_wumpus=0,
+        num_walls=2,
+        num_golds=1,
+        initial_health=50,
+    ),
+    MapGenerationConfig(
+        num_pits=4,
+        num_wumpus=0,
+        num_walls=3,
+        num_golds=1,
+        initial_health=40,
+    ),
+    MapGenerationConfig(
+        num_pits=1,
+        num_wumpus=2,
+        num_walls=3,
+        num_golds=1,
+        initial_health=40,
+    ),
+    MapGenerationConfig(
+        num_pits=2,
+        num_wumpus=1,
+        num_walls=2,
+        num_golds=3,
+        initial_health=45,
+    ),
+    MapGenerationConfig(
+        num_pits=3,
+        num_wumpus=1,
+        num_walls=4,
+        num_golds=2,
+        initial_health=30,
+    ),
+)
 
 
 @dataclass
@@ -29,7 +74,20 @@ class DatasetConfig:
     train_ratio: float = 0.7
     val_ratio: float = 0.15
     test_ratio: float = 0.15
-    map_gen_config: MapGenerationConfig = MapGenerationConfig()
+    map_gen_config: MapGenerationConfig | None = None
+    map_profiles: tuple[MapGenerationConfig, ...] = DEFAULT_MAP_PROFILES
+
+    def __post_init__(self) -> None:
+        if self.num_maps <= 0:
+            raise ValueError("num_maps must be positive")
+        if min(self.train_ratio, self.val_ratio, self.test_ratio) < 0:
+            raise ValueError("dataset split ratios cannot be negative")
+        if not np.isclose(
+            self.train_ratio + self.val_ratio + self.test_ratio, 1.0
+        ):
+            raise ValueError("dataset split ratios must sum to 1.0")
+        if self.map_gen_config is None and not self.map_profiles:
+            raise ValueError("at least one map generation profile is required")
 
 
 def generate_dataset(
@@ -48,10 +106,18 @@ def generate_dataset(
     all_masks: list[list[float]] = []
     all_map_ids: list[int] = []
 
-    for map_idx in range(config.num_maps):
-        map_seed = config.seed + map_idx
+    accepted_maps = 0
+    seed_attempt = 0
+    max_seed_attempts = config.num_maps * 10
+
+    while accepted_maps < config.num_maps and seed_attempt < max_seed_attempts:
+        map_seed = config.seed + seed_attempt
+        seed_attempt += 1
+        profile = config.map_gen_config or config.map_profiles[
+            accepted_maps % len(config.map_profiles)
+        ]
         try:
-            game_map, game_config = generate_map(config.map_gen_config, seed=map_seed)
+            game_map, game_config = generate_map(profile, seed=map_seed)
         except RuntimeError:
             continue
 
@@ -85,12 +151,20 @@ def generate_dataset(
                 for act in [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]
             ]
             all_masks.append(mask)
-            all_map_ids.append(map_idx)
+            all_map_ids.append(map_seed)
 
             # Execute step
             state = step(game_map, game_config, state, expert_action)
             if state.status != Status.RUNNING:
                 break
+
+        accepted_maps += 1
+
+    if accepted_maps != config.num_maps:
+        raise RuntimeError(
+            f"Generated only {accepted_maps} of {config.num_maps} requested maps "
+            f"after {max_seed_attempts} deterministic seed attempts"
+        )
 
     X_arr = np.array(all_X, dtype=np.float32)
     y_arr = np.array(all_y, dtype=np.int64)
@@ -149,6 +223,7 @@ def split_dataset(
 def save_dataset(
     output_dir: Path,
     data: dict[str, np.ndarray],
+    config: DatasetConfig | None = None,
 ) -> None:
     """Save dataset dict to an .npz file."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -157,8 +232,15 @@ def save_dataset(
         "feature_version": FEATURE_VERSION,
         "num_samples": len(data["y"]),
         "num_features": data["X"].shape[1],
+        "num_maps": int(len(np.unique(data["map_ids"]))),
+        "class_distribution": {
+            label_to_action(int(label)).value: int(count)
+            for label, count in zip(*np.unique(data["y"], return_counts=True))
+        },
         "feature_names": FEATURE_NAMES,
     }
+    if config is not None:
+        meta["dataset_config"] = asdict(config)
     (output_dir / "metadata.json").write_text(json.dumps(meta, indent=2))
 
 

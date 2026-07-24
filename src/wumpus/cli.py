@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from wumpus.dataset import DatasetConfig, generate_dataset, save_dataset, split_
 from wumpus.engine import compute_score
 from wumpus.evaluation.benchmark import generate_summary_table, run_benchmark_suite
 from wumpus.evaluation.suite_generator import generate_map_suite
-from wumpus.ml import save_model, train_models
+from wumpus.ml import evaluate_classifier, save_model, train_models
 from wumpus.parser import InputFormatError, parse_input
 
 
@@ -25,14 +26,13 @@ def _create_agent(name: str, parsed, model_path: Path | None = None):
     elif name == "rules":
         return RuleAgent()
     elif name == "ml":
-        agent = MLAgent()
-        if model_path and model_path.is_file():
-            agent.load(model_path)
-        else:
-            default_model = Path("artifacts/models/random_forest.joblib")
-            if default_model.is_file():
-                agent.load(default_model)
-        return agent
+        resolved_model = model_path or Path("artifacts/models/random_forest.joblib")
+        if not resolved_model.is_file():
+            raise FileNotFoundError(
+                f"ML model not found at '{resolved_model}'. Run "
+                "'python -m wumpus train' first or pass --model PATH."
+            )
+        return MLAgent(model_path=resolved_model)
     raise ValueError(f"Unknown agent: {name}")
 
 
@@ -81,6 +81,8 @@ def main() -> int:
     bench_parser.add_argument("--maps-dir", type=str, default="data/maps/test_suite", help="Path to test maps suite")
     bench_parser.add_argument("--results-dir", type=str, default="results", help="Path to save benchmark CSV results")
     bench_parser.add_argument("--generate-suite", action="store_true", help="Generate 20 test maps across 5 categories first")
+    bench_parser.add_argument("--model", type=str, default="artifacts/models/random_forest.joblib", help="Path to trained model file")
+    bench_parser.add_argument("--skip-ml", action="store_true", help="Run the benchmark without MLAgent")
 
     args = parser.parse_args()
 
@@ -89,7 +91,7 @@ def main() -> int:
         config = DatasetConfig(num_maps=args.num_maps, seed=args.seed)
         data = generate_dataset(config)
         out_path = Path(args.output_dir)
-        save_dataset(out_path, data)
+        save_dataset(out_path, data, config=config)
         print(f"Dataset generated with {len(data['y'])} samples across {len(set(data['map_ids']))} maps.")
         print(f"Saved to '{out_path}'.")
         return 0
@@ -118,7 +120,25 @@ def main() -> int:
         out_dir = Path(args.output_dir)
         rf_path = out_dir / "random_forest.joblib"
         save_model(results["models"]["random_forest"], rf_path)
+        test_metrics = evaluate_classifier(results["models"]["random_forest"], test)
+        metrics_path = out_dir / "training_metrics.json"
+        metrics_path.write_text(
+            json.dumps(
+                {
+                    "validation": metrics,
+                    "test": test_metrics,
+                    "split_sizes": {
+                        "train": len(train["y"]),
+                        "validation": len(val["y"]),
+                        "test": len(test["y"]),
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         print(f"\nSaved main Random Forest model to '{rf_path}'.")
+        print(f"Saved validation/test metrics to '{metrics_path}'.")
         return 0
 
     elif args.command == "benchmark":
@@ -130,7 +150,17 @@ def main() -> int:
 
         res_path = Path(args.results_dir)
         print(f"\nRunning benchmark suite on all maps in '{maps_path}'...")
-        rows = run_benchmark_suite(maps_path, res_path, seed=42)
+        try:
+            rows = run_benchmark_suite(
+                maps_path,
+                res_path,
+                seed=42,
+                model_path=Path(args.model),
+                include_ml=not args.skip_ml,
+            )
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}")
+            return 2
 
         summary = generate_summary_table(rows)
 
@@ -156,6 +186,7 @@ def main() -> int:
 
         print("=" * 80)
         print(f"Raw results saved to '{res_path / 'benchmark_results.csv'}'.")
+        print(f"JSON summary saved to '{res_path / 'benchmark_summary.json'}'.")
         return 0
 
     input_path = Path(args.input)
@@ -182,7 +213,11 @@ def main() -> int:
 
     elif args.command == "run":
         model_p = Path(args.model) if args.model else None
-        agent = _create_agent(args.agent, parsed, model_path=model_p)
+        try:
+            agent = _create_agent(args.agent, parsed, model_path=model_p)
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}")
+            return 2
 
         public_info = _get_public_map_info(args.agent, parsed)
 
@@ -218,7 +253,7 @@ def main() -> int:
         if args.agent == "search" and hasattr(agent, "search_result"):
             sr = agent.search_result
             if sr:
-                print(f"\n--- A* Diagnostics ---")
+                print("\n--- A* Diagnostics ---")
                 print(f"Expanded nodes: {sr.expanded_nodes}")
                 print(f"Peak frontier: {sr.peak_frontier}")
                 print(f"Planning time: {sr.planning_time_ms:.2f} ms")

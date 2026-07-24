@@ -7,16 +7,25 @@ Covers:
   T603 — Statistical summary table computation
 """
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import numpy as np
 import pytest
 
 from wumpus.evaluation.benchmark import (
     generate_summary_table,
     run_benchmark_suite,
-    run_single_benchmark,
 )
 from wumpus.evaluation.suite_generator import generate_map_suite
+from wumpus.ml import MajorityBaseline, save_model
+
+
+def _write_test_model(path: Path) -> Path:
+    X = np.zeros((4, 397), dtype=np.float32)
+    y = np.array([0, 1, 2, 3], dtype=np.int64)
+    save_model(MajorityBaseline().fit(X, y), path)
+    return path
 
 
 class TestBenchmarkSuite:
@@ -28,6 +37,7 @@ class TestBenchmarkSuite:
             files = generate_map_suite(out_path, base_seed=700)
 
             assert len(files) == 20
+            assert (out_path / "suite_manifest.json").is_file()
             categories = {f.name.split("_map_")[0] for f in files}
             assert len(categories) == 5
 
@@ -37,15 +47,18 @@ class TestBenchmarkSuite:
             tmp_p = Path(tmpdir)
             maps_p = tmp_p / "maps"
             res_p = tmp_p / "results"
+            model_p = _write_test_model(tmp_p / "model.joblib")
 
             generate_map_suite(maps_p, base_seed=800)
-            rows1 = run_benchmark_suite(maps_p, res_p, seed=42)
+            rows1 = run_benchmark_suite(maps_p, res_p, seed=42, model_path=model_p)
 
             assert len(rows1) == 20 * 5  # 20 maps x 5 agents
             assert (res_p / "benchmark_results.csv").is_file()
+            assert (res_p / "benchmark_results.json").is_file()
+            assert (res_p / "benchmark_summary.json").is_file()
 
             # T602 Reproducibility check
-            rows2 = run_benchmark_suite(maps_p, res_p, seed=42)
+            rows2 = run_benchmark_suite(maps_p, res_p, seed=42, model_path=model_p)
             for r1, r2 in zip(rows1, rows2):
                 assert r1.status == r2.status
                 assert r1.final_score == r2.final_score
@@ -57,9 +70,10 @@ class TestBenchmarkSuite:
             tmp_p = Path(tmpdir)
             maps_p = tmp_p / "maps"
             res_p = tmp_p / "results"
+            model_p = _write_test_model(tmp_p / "model.joblib")
 
             generate_map_suite(maps_p, base_seed=900)
-            rows = run_benchmark_suite(maps_p, res_p, seed=42)
+            rows = run_benchmark_suite(maps_p, res_p, seed=42, model_path=model_p)
 
             summary = generate_summary_table(rows)
             assert "search" in summary
@@ -70,3 +84,16 @@ class TestBenchmarkSuite:
 
             # SearchAgent with full visibility should have 100% win rate on solvable maps
             assert summary["search"]["win_rate_pct"] == 100.0
+
+    def test_benchmark_requires_explicit_ml_model(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_p = Path(tmpdir)
+            maps_p = tmp_p / "maps"
+            generate_map_suite(maps_p, base_seed=950)
+
+            with pytest.raises(FileNotFoundError, match="ML model not found"):
+                run_benchmark_suite(
+                    maps_p,
+                    tmp_p / "results",
+                    model_path=tmp_p / "missing.joblib",
+                )

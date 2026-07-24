@@ -10,12 +10,11 @@ Categories:
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from dataclasses import dataclass
 
-from wumpus.domain import Position
 from wumpus.generator import MapGenerationConfig, generate_map
-from wumpus.parser import parse_input
 
 
 @dataclass
@@ -95,5 +94,16 @@ def generate_map_suite(output_dir: Path, base_seed: int = 500) -> list[Path]:
             content = _format_map_file(game_map, config)
             file_path.write_text(content, encoding="utf-8")
             generated_files.append(file_path)
+
+    manifest = {
+        "base_seed": base_seed,
+        "num_maps": len(generated_files),
+        "categories": [asdict(category) for category in SUITE_CATEGORIES],
+        "files": [path.name for path in generated_files],
+    }
+    (output_dir / "suite_manifest.json").write_text(
+        json.dumps(manifest, indent=2),
+        encoding="utf-8",
+    )
 
     return generated_files

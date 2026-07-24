@@ -31,6 +31,7 @@ class Status(str, Enum):
     DEAD_HEALTH = "DEAD_HEALTH"
     NO_SOLUTION = "NO_SOLUTION"
     STEP_LIMIT = "STEP_LIMIT"
+    AGENT_ERROR = "AGENT_ERROR"
 
 
 _ACTION_DELTAS: dict[Action, tuple[int, int]] = {

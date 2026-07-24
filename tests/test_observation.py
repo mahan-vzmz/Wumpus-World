@@ -4,12 +4,10 @@ Covers: breeze, stench, glitter, at_exit, legal_actions,
 corner/edge cases, diagonal non-effect, and no hidden info leak.
 """
 
-import pytest
 
 from wumpus.domain import Action, GameConfig, GameMap, GameState, Position, Status, Tile
 from wumpus.engine import init_state, step
-from wumpus.observation import Observation, make_observation
-
+from wumpus.observation import make_observation
 
 # ---------------------------------------------------------------------------
 # Helpers

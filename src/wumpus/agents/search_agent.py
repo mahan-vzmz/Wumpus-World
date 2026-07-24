@@ -12,13 +12,15 @@ from __future__ import annotations
 from typing import Any
 
 from wumpus.agents.base import Agent
-from wumpus.domain import Action, GameConfig, GameMap, Status
+from wumpus.domain import Action, GameConfig, GameMap
 from wumpus.observation import Observation
 from wumpus.search import SearchResult, solve_astar
 
 
 class SearchAgent(Agent):
     """A* offline agent that plans the entire path before the first move."""
+
+    requires_full_map = True
 
     def __init__(self) -> None:
         self._plan: tuple[Action, ...] = ()

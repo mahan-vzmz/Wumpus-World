@@ -24,7 +24,7 @@ from typing import Any
 
 from wumpus.agents.base import Agent
 from wumpus.domain import Action, GameConfig, Position
-from wumpus.knowledge import CellStatus, KnowledgeBase
+from wumpus.knowledge import KnowledgeBase
 from wumpus.observation import Observation
 
 

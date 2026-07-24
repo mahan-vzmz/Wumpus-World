@@ -45,9 +45,11 @@ class MLAgent(Agent):
     def choose_action(self, observation: Observation) -> Action:
         assert self._config is not None
 
-        # Fallback to legal action if no model loaded
         if self._model is None:
-            return observation.legal_actions[0]
+            raise RuntimeError(
+                "MLAgent has no trained model. Run 'python -m wumpus train' "
+                "or pass --model PATH."
+            )
 
         # Update KB
         self._kb.update(
@@ -61,8 +63,18 @@ class MLAgent(Agent):
         # Encode features
         x_vec = encode_observation(observation, self._kb, self._config)
 
-        # Predict with legal action masking
-        action = predict_masked_action(self._model, x_vec, observation.legal_actions)
+        # Exclude hazards that the observation-driven knowledge base has
+        # confirmed. Unknown cells remain available because partial
+        # observability sometimes requires taking a calculated risk.
+        non_dangerous_actions = tuple(
+            action
+            for action in observation.legal_actions
+            if not self._kb.is_dangerous(observation.position.moved(action))
+        )
+        candidate_actions = non_dangerous_actions or observation.legal_actions
+
+        # Predict with legal and knowledge-based action masking.
+        action = predict_masked_action(self._model, x_vec, candidate_actions)
         return action
 
     def observe_transition(

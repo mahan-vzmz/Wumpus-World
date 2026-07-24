@@ -14,7 +14,6 @@ from wumpus.engine import (
     step,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -302,7 +301,6 @@ class TestEdgeCases:
         state = init_state(gm, cfg)
 
         step(gm, cfg, state, Action.RIGHT)  # → (1,2) pit, health: 49→24
-        health_after_first = state.health
         step(gm, cfg, state, Action.LEFT)   # → (1,1) empty, health: 23
         step(gm, cfg, state, Action.RIGHT)  # → (1,2) pit again, health: 22→11
 
