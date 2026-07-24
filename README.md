@@ -1,3 +1,5 @@
+<div dir="rtl">
+
 # 🏆 Wumpus World AI — شبیه‌ساز و بنچمارک سه روش هوش مصنوعی
 
 [![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
@@ -8,7 +10,7 @@
 
 یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
 
-- 🎯 **A\* Search:** با دید کامل از نقشه، به‌عنوان خبره و کران بالای عملکرد؛
+- 🎯 **عامل A\* Search:** با دید کامل از نقشه، به‌عنوان خبره و کران بالای عملکرد؛
 - 🧠 **استدلال قاعده‌محور (Rule-based):** با دید ناقص و trace قابل‌توضیح بر اساس پایگاه دانش؛
 - 🤖 **یادگیری نظارت‌شده (Random Forest):** با ویژگی‌های صرفاً مشاهده‌پذیر و Action Masking.
 
@@ -39,32 +41,38 @@
 
 ## 🏗️ معماری ساختار پروژه
 
+<div dir="ltr">
+
 ```text
 src/wumpus/
-├── core/                  # 🟢 هسته شبیه‌ساز و قوانین محیط
-│   ├── domain.py          # مدل‌های دامنه، موقعیت و وضعیت‌های بازی
-│   ├── engine.py          # موتور قطعی و ترتیب رویدادهای بازی (step)
-│   ├── observation.py     # تولید مشاهده‌ها (breeze, stench, glitter)
-│   ├── parser.py          # خواندن و اعتبارسنجی ورودی ۱۲ خطی
-│   ├── generator.py       # مولد نقشه‌های معتبر و تضمین‌شده
-│   └── runner.py          # حلقهٔ مشترک اجرا و مدیریت خطای عامل
-├── ai/                    # 🔵 الگوریتم‌های هوش مصنوعی و پردازش داده
-│   ├── search.py          # A* امتیازبهینه با terminal cost
-│   ├── knowledge.py       # پایگاه دانش منطقی و forward chaining
-│   ├── encoder.py         # بردار ویژگی ۳۹۷بعدی بدون نشت داده
-│   ├── dataset.py         # تولید demonstration و split نقشه‌محور
-│   └── ml.py              # آموزش مدل، معیارهای ارزیابی و action masking
-├── agents/                # 🟣 عامل‌ها (Search / Rule / ML / Greedy / Random)
-├── evaluation/            # 🟡 تولید suite و بنچمارک قابل‌بازتولید
-├── cli.py                 # رابط خط فرمان (CLI)
-└── __main__.py            # نقطهٔ ورود پایتون
+├── core/                  # Simulator core & game rules
+│   ├── domain.py          # Domain models (Position, GameMap, GameState)
+│   ├── engine.py          # Transition logic & event ordering (step)
+│   ├── observation.py     # Percept generation (breeze, stench, glitter)
+│   ├── parser.py          # Map parsing & validation
+│   ├── generator.py       # Solvable map generator
+│   └── runner.py          # Episode execution loop & error handling
+├── ai/                    # AI algorithms & data pipeline
+│   ├── search.py          # Score-optimal A* with terminal cost
+│   ├── knowledge.py       # Logical KnowledgeBase & forward chaining
+│   ├── encoder.py         # 397-dim observation feature encoder
+│   ├── dataset.py         # Demonstration generation & map-split
+│   └── ml.py              # ML model training, metrics & action masking
+├── agents/                # Agents (Search / Rule / ML / Greedy / Random)
+├── evaluation/            # Benchmark suite runner & generator
+├── cli.py                 # Command line interface (CLI)
+└── __main__.py            # Python entrypoint
 ```
+
+</div>
 
 ---
 
 ## 🚀 نصب سریع
 
 **پیش‌نیاز:** Python 3.11 یا جدیدتر.
+
+<div dir="ltr">
 
 ```bash
 # ۱) دریافت پروژه
@@ -79,9 +87,13 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
 ```
 
+</div>
+
 ---
 
 ## 🧪 اجرای تست و کنترل کیفیت
+
+<div dir="ltr">
 
 ```bash
 # اجرای ۱۰۳ تست خودکار
@@ -94,6 +106,8 @@ ruff check .
 pytest --cov=wumpus --cov-report=term-missing
 ```
 
+</div>
+
 - **۱۰۳ تست خودکار** سبزرنگ؛
 - **پوشش ۹۲.۳۷٪** برای کد هسته؛
 - تست و بررسی خودکار روی Python 3.11 و 3.12 در GitHub Actions.
@@ -101,6 +115,8 @@ pytest --cov=wumpus --cov-report=term-missing
 ---
 
 ## 🕹️ اجرای نمونه
+
+<div dir="ltr">
 
 ```bash
 # اعتبارسنجی نقشه
@@ -117,12 +133,16 @@ python -m wumpus run --agent greedy --input data/maps/example.txt
 python -m wumpus run --agent random --input data/maps/example.txt --seed 42
 ```
 
+</div>
+
 ---
 
 ## 🔄 بازتولید چرخهٔ ML و Benchmark
 
 > [!IMPORTANT]
 > فایل باینری مدل عمداً داخل Git نگهداری نمی‌شود؛ دیتاست، تنظیمات، معیارها و دستور بازتولید ثبت شده‌اند.
+
+<div dir="ltr">
 
 ```bash
 # ۱) بازتولید ۱۰۰ نقشهٔ آموزشی متنوع و demonstrationهای A*
@@ -140,11 +160,17 @@ python -m wumpus benchmark \
   --results-dir results
 ```
 
+</div>
+
 اگر فقط عامل‌های غیر ML مدنظر باشند:
+
+<div dir="ltr">
 
 ```bash
 python -m wumpus benchmark --skip-ml
 ```
+
+</div>
 
 در صورت نبود مدل، CLI به‌جای اجرای یک fallback خاموش با پیام روشن و exit code غیرصفر متوقف می‌شود.
 
@@ -153,6 +179,8 @@ python -m wumpus benchmark --skip-ml
 ## 📄 قالب ورودی
 
 ورودی شامل ۸ سطر نقشه و چهار مقدار تنظیمات است:
+
+<div dir="ltr">
 
 ```text
 ********
@@ -168,6 +196,8 @@ W***P***
 -10
 8 8
 ```
+
+</div>
 
 نمادها: `*` خانهٔ خالی، `P` چاه، `W` غول، `D` دیوار و `G` طلا. مختصات بیرونی یک‌مبنا و به‌شکل `(row, column)` هستند.
 
@@ -202,3 +232,5 @@ W***P***
 - [`docs/TASKBOOK.md`](docs/TASKBOOK.md): وضعیت اجرایی و کارهای باقی‌مانده؛
 - [`docs/DEMO.md`](docs/DEMO.md): سناریوی ارائهٔ ۵ دقیقه‌ای؛
 - [`tests/fixtures/GOLDEN_EXAMPLES.md`](tests/fixtures/GOLDEN_EXAMPLES.md): مثال‌های دستی حرکت‌به‌حرکت.
+
+</div>
