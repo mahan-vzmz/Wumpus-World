@@ -30,8 +30,7 @@
 | **Random Forest** | Partial | 75% | 15.6 | 13.9 | 11 | 2 |
 | **Random baseline** | Partial | 0% | -0.5 | 32.4 | 13 | 4 |
 
-> [!NOTE]
-> مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
+> 📌 **نکته:** مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
 
 نتایج خام و مشخصات اجرای ثبت‌شده در [`results/`](results/) قرار دارند.
 
@@ -72,18 +71,30 @@ src/wumpus/
 
 **پیش‌نیاز:** Python 3.11 یا جدیدتر.
 
+۱) دریافت پروژه و ورود به دایرکتوری:
 <div dir="ltr">
 
 ```bash
-# ۱) دریافت پروژه
 git clone https://github.com/mahan-vzmz/Wumpus-World.git
 cd Wumpus-World
+```
 
-# ۲) ساخت و فعال‌سازی محیط مجازی
+</div>
+
+۲) ساخت و فعال‌سازی محیط مجازی:
+<div dir="ltr">
+
+```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
+```
 
-# ۳) نصب نیازمندی‌ها
+</div>
+
+۳) نصب نیازمندی‌ها:
+<div dir="ltr">
+
+```bash
 python -m pip install -e ".[dev]"
 ```
 
@@ -93,16 +104,12 @@ python -m pip install -e ".[dev]"
 
 ## 🧪 اجرای تست و کنترل کیفیت
 
+اجرای تست‌های خودکار، بررسی نگارشی و میزان پوشش کد:
 <div dir="ltr">
 
 ```bash
-# اجرای ۱۰۳ تست خودکار
 pytest
-
-# بررسی استانداردهای نگارشی کد
 ruff check .
-
-# سنجش میزان پوشش کد (Coverage)
 pytest --cov=wumpus --cov-report=term-missing
 ```
 
@@ -116,19 +123,37 @@ pytest --cov=wumpus --cov-report=term-missing
 
 ## 🕹️ اجرای نمونه
 
+اعتبارسنجی نقشه:
 <div dir="ltr">
 
 ```bash
-# اعتبارسنجی نقشه
 python -m wumpus validate --input data/maps/example.txt
+```
 
-# اجرای عامل A* با دید کامل
+</div>
+
+اجرای عامل A* با دید کامل:
+<div dir="ltr">
+
+```bash
 python -m wumpus run --agent search --input data/maps/example.txt
+```
 
-# اجرای عامل قاعده‌محور با trace استدلال
+</div>
+
+اجرای عامل قاعده‌محور با trace استدلال:
+<div dir="ltr">
+
+```bash
 python -m wumpus run --agent rules --input tests/fixtures/golden2_pit.txt --trace
+```
 
-# اجرای baselineها
+</div>
+
+اجرای baselineها:
+<div dir="ltr">
+
+```bash
 python -m wumpus run --agent greedy --input data/maps/example.txt
 python -m wumpus run --agent random --input data/maps/example.txt --seed 42
 ```
@@ -139,31 +164,36 @@ python -m wumpus run --agent random --input data/maps/example.txt --seed 42
 
 ## 🔄 بازتولید چرخهٔ ML و Benchmark
 
-> [!IMPORTANT]
-> فایل باینری مدل عمداً داخل Git نگهداری نمی‌شود؛ دیتاست، تنظیمات، معیارها و دستور بازتولید ثبت شده‌اند.
+> ⚠️ **مهم:** فایل باینری مدل عمداً داخل Git نگهداری نمی‌شود؛ دیتاست، تنظیمات، معیارها و دستور بازتولید ثبت شده‌اند.
 
+۱) بازتولید ۱۰۰ نقشهٔ آموزشی متنوع و demonstrationهای A*:
 <div dir="ltr">
 
 ```bash
-# ۱) بازتولید ۱۰۰ نقشهٔ آموزشی متنوع و demonstrationهای A*
-python -m wumpus dataset \
-  --num-maps 100 --seed 100 --output-dir data/processed
+python -m wumpus dataset --num-maps 100 --seed 100 --output-dir data/processed
+```
 
-# ۲) آموزش و ذخیرهٔ مدل و معیارهای validation/test
-python -m wumpus train \
-  --data-dir data/processed --output-dir artifacts/models
+</div>
 
-# ۳) اجرای benchmark نهایی روی holdout ثابت
-python -m wumpus benchmark \
-  --maps-dir data/maps/holdout_suite \
-  --model artifacts/models/random_forest.joblib \
-  --results-dir results
+۲) آموزش و ذخیرهٔ مدل و معیارهای validation/test:
+<div dir="ltr">
+
+```bash
+python -m wumpus train --data-dir data/processed --output-dir artifacts/models
+```
+
+</div>
+
+۳) اجرای benchmark نهایی روی holdout ثابت:
+<div dir="ltr">
+
+```bash
+python -m wumpus benchmark --maps-dir data/maps/holdout_suite --model artifacts/models/random_forest.joblib --results-dir results
 ```
 
 </div>
 
 اگر فقط عامل‌های غیر ML مدنظر باشند:
-
 <div dir="ltr">
 
 ```bash
