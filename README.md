@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-99%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/core%20coverage-91%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/core%20coverage-92.37%25-brightgreen)
 
 یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
 
@@ -70,8 +70,8 @@ ruff check .
 pytest --cov=wumpus --cov-report=term-missing
 ```
 
-- ۹۹ تست خودکار؛
-- پوشش ۹۱٪ برای کد هسته؛
+- ۱۰۳ تست خودکار؛
+- پوشش ۹۲.۳۷٪ برای کد هسته؛
 - lint و تست خودکار روی Python 3.11 و 3.12 در GitHub Actions.
 
 ## اجرای نمونه
