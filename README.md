@@ -235,11 +235,11 @@ W***P***
 
 ## 📂 بازتولیدپذیری و داده‌های ثبت‌شده
 
-- [`data/processed/metadata.json`](data/processed/metadata.json): schema، تعداد نمونه‌ها، profileها و توزیع کلاس‌ها؛
-- [`artifacts/models/training_metrics.json`](artifacts/models/training_metrics.json): معیارهای validation/test و confusion matrix؛
-- [`data/maps/holdout_suite/suite_manifest.json`](data/maps/holdout_suite/suite_manifest.json): seed و تنظیمات مجموعهٔ holdout؛
-- [`results/benchmark_results.csv`](results/benchmark_results.csv): ۱۰۰ ردیف خام اجرای نهایی؛
-- [`results/benchmark_summary.json`](results/benchmark_summary.json): خلاصه، نسخهٔ Python و SHA-256 مدل.
+- **فایل متادیتا ([`data/processed/metadata.json`](data/processed/metadata.json)):** شامل schema، تعداد نمونه‌ها، profileها و توزیع کلاس‌ها؛
+- **معیارهای مدل ([`artifacts/models/training_metrics.json`](artifacts/models/training_metrics.json)):** معیارهای validation/test و confusion matrix؛
+- **پیکربندی Holdout ([`data/maps/holdout_suite/suite_manifest.json`](data/maps/holdout_suite/suite_manifest.json)):** seed و تنظیمات مجموعهٔ ارزیابی؛
+- **نتایج خام ([`results/benchmark_results.csv`](results/benchmark_results.csv)):** ۱۰۰ ردیف دادهٔ خام اجرای نهایی؛
+- **خلاصهٔ ارزیابی ([`results/benchmark_summary.json`](results/benchmark_summary.json)):** خلاصهٔ بنچمارک، نسخهٔ Python و SHA-256 مدل.
 
 ---
 
@@ -255,12 +255,12 @@ W***P***
 
 ## 📚 مستندات
 
-- [`LICENSE`](LICENSE): مجوز MIT برای استفاده و توسعهٔ پروژه؛
-- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md): قراردادها و دفتر تصمیم‌ها؛
-- [`docs/SPEC.md`](docs/SPEC.md): مشخصات فنی و رفتاری؛
-- [`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md): گزارش روش‌ها و تحلیل نتایج؛
-- [`docs/TASKBOOK.md`](docs/TASKBOOK.md): وضعیت اجرایی و کارهای باقی‌مانده؛
-- [`docs/DEMO.md`](docs/DEMO.md): سناریوی ارائهٔ ۵ دقیقه‌ای؛
-- [`tests/fixtures/GOLDEN_EXAMPLES.md`](tests/fixtures/GOLDEN_EXAMPLES.md): مثال‌های دستی حرکت‌به‌حرکت.
+- **مجوز پروژه ([`LICENSE`](LICENSE)):** مجوز MIT برای استفاده و توسعهٔ پروژه؛
+- **محیط و تصمیمات ([`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md)):** قراردادها و دفتر تصمیم‌ها؛
+- **مشخصات فنی ([`docs/SPEC.md`](docs/SPEC.md)):** مشخصات فنی و رفتاری سیستم؛
+- **گزارش جامع ([`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)):** گزارش روش‌ها و تحلیل نتایج بنچمارک؛
+- **دفترچه تسک‌ها ([`docs/TASKBOOK.md`](docs/TASKBOOK.md)):** وضعیت اجرایی و کارهای باقی‌مانده؛
+- **سناریوی ارائه ([`docs/DEMO.md`](docs/DEMO.md)):** سناریوی ارائهٔ ۵ دقیقه‌ای؛
+- **مثال‌های گام‌به‌گام ([`tests/fixtures/GOLDEN_EXAMPLES.md`](tests/fixtures/GOLDEN_EXAMPLES.md)):** مثال‌های دستی حرکت‌به‌حرکت.
 
 </div>
