@@ -1,128 +1,168 @@
-# 🏆 شبیه‌ساز و بنچمارک هوش مصنوعی Wumpus World
+# Wumpus World AI — شبیه‌ساز و بنچمارک سه روش هوش مصنوعی
 
-پروژهٔ جامع پیاده‌سازی و مقایسهٔ روش‌های هوش مصنوعی (جست‌وجوی A*، استدلال قاعده‌محور، و یادگیری ماشین با نظارت) در محیط Wumpus World.
+[![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-99%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/core%20coverage-91%25-brightgreen)
 
----
+یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
 
-## 📌 معرفی پروژه
+- **A\*** با دید کامل از نقشه، به‌عنوان خبره و کران بالای عملکرد؛
+- **استدلال قاعده‌محور** با دید ناقص و trace قابل‌توضیح؛
+- **یادگیری نظارت‌شده** با Random Forest، ویژگی‌های صرفاً مشاهده‌پذیر و action masking.
 
-این پروژه یک شبیه‌ساز استاندارد و ماژولار برای محیط Wumpus World روی شبکهٔ ۸×۸ است. هدف اصلی پروژه، پیاده‌سازی و مقایسهٔ علمی سه پارادایم اصلی هوش مصنوعی زیر است:
+دو baseline حریصانه و تصادفی نیز برای تفسیر بهتر نتایج اجرا می‌شوند. تمام عامل‌ها از موتور بازی، قرارداد امتیاز و مجموعهٔ نقشهٔ مشترک استفاده می‌کنند.
 
-1. **روش اول — جست‌وجوی $A^*$ (`SearchAgent`):** عامل آفلاین با دید کامل از نقشه (Full Visibility) که مسیر بهینهٔ پرامتیاز را با هیوریستیک مقبول Distance Manhattan محاسبه می‌کند.
-2. **روش دوم — استدلال قاعده‌محور (`RuleAgent`):** عامل آنلاین با دید ناقص (Partial Visibility) که با استفاده از حس‌گرها (نسیم، بوی بد) و پایگاه دانش (Knowledge Base) منطقی، خانه‌های امن را استنتاج می‌کند.
-3. **روش سوم — یادگیری ماشین با نظارت (`MLAgent`):** عامل آنلاین داده‌محور که بر اساس آموزش مدل **Random Forest** روی مسیرهای خبرهٔ $A^*$ تصمیم‌گیری می‌کند و با ماسک‌گذاری (Action Masking) مانع حرکت‌های غیرقانونی می‌شود.
+## نتایج نهایی روی مجموعهٔ holdout
 
----
+مدل روی ۱۰۰ نقشهٔ تولیدی با seedهای `100..199` آموزش دیده و ارزیابی نهایی روی ۲۰ نقشهٔ جدا با seedهای `2000..2019` انجام شده است. این مجموعه در انتخاب مدل استفاده نشده است.
 
-## 📊 جدول مقایسهٔ نهایی بنچمارک (روی ۲۰ نقشهٔ چالش‌برانگیز)
+| عامل | میزان مشاهده | نرخ برد | میانگین امتیاز تشخیصی | میانگین گام | ورود به چاه | مرگ با غول |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| A\* Search | Full | **100%** | **41.6** | 14.9 | 0 | 0 |
+| Rule-based | Partial | **95%** | 25.3 | 18.8 | **2** | **0** |
+| Greedy baseline | Partial | 80% | 16.1 | **12.8** | 12 | 3 |
+| Random Forest | Partial | 75% | 14.3 | 13.9 | 12 | 2 |
+| Random baseline | Partial | 0% | -0.5 | 32.4 | 13 | 4 |
 
-| نام عامل | دید عامل (Visibility) | درصد برد (Win Rate) | میانگین امتیاز | میانگین گام‌ها | مجموع ورود به چاه | مرگ توسط غول | میانگین زمان (ms) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`search` ($A^*$)** | Full (چشم باز) | **۱۰۰.۰٪** | **۳۸.۵** | ۱۴.۶ | **۱ بار** | **۰** | ۳.۹۶ |
-| **`rules` (قاعده‌محور)** | Partial (چشم بسته) | **۹۰.۰٪** | **۲۵.۴** | ۱۸.۶ | **۲ بار** | ۲ | ۲۵.۵۳ |
-| **`ml` (یادگیری ماشین)** | Partial (چشم بسته) | **۸۵.۰٪** | **۱۸.۶** | ۱۳.۸ | ۹ بار | ۱ | ۱۰۶۵.۷۵ |
-| **`greedy` (حریصانه)** | Partial (چشم بسته) | **۸۵.۰٪** | **۱۷.۴** | ۱۳.۶ | ۱۰ بار | ۱ | ۱.۷۹ |
-| **`random` (تصادفی)** | Partial (چشم بسته) | **۰.۰٪** | **۱۲.۲-** | ۲۹.۴ | ۲۱ بار | ۲ | ۲.۲۶ |
+> مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
 
----
+نتایج خام و مشخصات اجرای ثبت‌شده در [`results/`](results/) قرار دارند.
 
-## 🛠️ پیش‌نیازها و نصب
+![Holdout win rate by agent](docs/assets/benchmark_win_rate.svg)
 
-پروژه با **Python 3.11+** توسعه یافته است.
-
-```bash
-# نصب بسته و پیش‌نیازها به‌صورت قابل ویرایش (Editable)
-pip install -e ".[dev]"
-```
-
----
-
-## 🚀 راهنمای اجرای دستورات خط فرمان (CLI)
-
-تمام دستورات پروژه از طریق ماژول `wumpus` به راحتی قابل اجرا هستند:
-
-### ۱. اجرای عامل‌های مختلف روی یک نقشه
-
-```bash
-# اجرای عامل A* (جست‌وجوی بهینه)
-python -m wumpus run --agent search --input data/maps/example.txt
-
-# اجرای عامل قاعده‌محور (همراه با چاپ ردپای استدلال‌ها)
-python -m wumpus run --agent rules --input tests/fixtures/golden2_pit.txt --trace
-
-# اجرای عامل یادگیری ماشین (ML)
-python -m wumpus run --agent ml --input data/maps/example.txt
-
-# اجرای عامل حریصانه (Greedy Baseline)
-python -m wumpus run --agent greedy --input data/maps/example.txt
-```
-
-### ۲. اعتبارسنجی یک فایل نقشه
-
-```bash
-python -m wumpus validate --input data/maps/example.txt
-```
-
-### ۳. چرخهٔ کامل یادگیری ماشین (تولید داده + آموزش)
-
-```bash
-# گام ۱: تولید دیتاست از ۲۰ نقشه با Seed ثابت
-python -m wumpus dataset --num-maps 20 --seed 100 --output-dir data/processed
-
-# گام ۲: آموزش مدل‌های ML و ذخیرهٔ مدل Random Forest
-python -m wumpus train --data-dir data/processed --output-dir artifacts/models
-
-# گام ۳: اجرای عامل ML با مدل آموزش‌دیده
-python -m wumpus run --agent ml --input data/maps/example.txt
-```
-
-### ۴. اجرای بنچمارک جامع روی ۲۰ نقشهٔ چالش‌برانگیز
-
-```bash
-python -m wumpus benchmark
-```
-
----
-
-## 🧪 اجرای تست‌های واحد (Unit Tests)
-
-پروژه دارای **۹۱ تست خودکار** جامع در Pytest است:
-
-```bash
-pytest -v
-```
-
----
-
-## 📂 ساختار پروژه‌ای
+## معماری
 
 ```text
-Wumpus-World/
-├── docs/                      # مستندات و قراردادهای پروژه (SPEC, ROADMAP, TASKBOOK)
-├── data/                      # نقشه‌ها و دیتاست‌های پردازش‌شده
-│   ├── maps/                  # نقشه‌های آزمایشی و مجموعه بنچمارک
-│   └── processed/             # فایل‌های npz دیتاست
-├── artifacts/                 # مدل‌های آموزش‌دیده (Random Forest joblib)
-├── results/                   # نتایج خام بنچمارک (CSV)
-├── src/wumpus/                # کد منبع پروژه
-│   ├── domain.py              # ساختارهای داده و اشیای دامنه
-│   ├── engine.py              # موتور اصلی بازی و قوانین انتقال
-│   ├── observation.py         # مدل حس‌گرهای عامل (Breeze, Stench, Glitter)
-│   ├── parser.py               # خواندن و اعتبارسنجی فایل متنی نقشه
-│   ├── search.py               # الگوریتم A* و هیوریستیک
-│   ├── knowledge.py            # پایگاه دانش منطقی و قواعد استنتاج
-│   ├── encoder.py              # کدکنندهٔ ویژگی‌های ML (۳۹۷ ویژگی)
-│   ├── dataset.py              # تولید دیتاست و تقسیم بدون نشت داده
-│   ├── ml.py                   # آموزش مدل‌ها و Action Masking
-│   ├── generator.py            # مولد نقشه‌های معتبر و حل‌پذیر
-│   ├── runner.py               # حلقهٔ اجرا و شبیه‌ساز امن
-│   ├── cli.py                  # رابط خط فرمان کاربر
-│   └── agents/                 # عامل‌های مختلف (Search, Rule, ML, Greedy, Random)
-└── tests/                     # تست‌های خودکار Pytest (۹۱ تست)
+src/wumpus/
+├── domain.py              # مدل‌های دامنه و وضعیت‌های بازی
+├── parser.py              # parser و اعتبارسنجی ورودی ۱۲ خطی
+├── engine.py              # موتور قطعی و ترتیب رویدادها
+├── observation.py         # breeze / stench / glitter / legal actions
+├── runner.py              # حلقهٔ مشترک اجرا و مدیریت خطای عامل
+├── search.py              # A* امتیازبهینه با terminal cost
+├── knowledge.py           # پایگاه دانش و forward chaining
+├── encoder.py             # بردار ویژگی ۳۹۷بعدی بدون hidden-map leakage
+├── dataset.py             # تولید demonstration و split نقشه‌محور
+├── ml.py                  # آموزش، معیارها، serialization و masking
+├── agents/                # Search / Rule / ML / Greedy / Random
+└── evaluation/            # تولید suite و benchmark قابل‌بازتولید
 ```
 
----
+## نصب سریع
 
-## 📜 لایسنس
+پیش‌نیاز: Python 3.11 یا جدیدتر.
 
-توسعه‌یافته برای درس هوش مصنوعی دانشگاهی. تمامی حقوق محفوظ است.
+```bash
+git clone https://github.com/mahan-vzmz/Wumpus-World.git
+cd Wumpus-World
+
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
+```
+
+## اجرای تست و کنترل کیفیت
+
+```bash
+pytest
+ruff check .
+pytest --cov=wumpus --cov-report=term-missing
+```
+
+- ۹۹ تست خودکار؛
+- پوشش ۹۱٪ برای کد هسته؛
+- lint و تست خودکار روی Python 3.11 و 3.12 در GitHub Actions.
+
+## اجرای نمونه
+
+```bash
+# اعتبارسنجی نقشه
+python -m wumpus validate --input data/maps/example.txt
+
+# A* با دید کامل
+python -m wumpus run --agent search --input data/maps/example.txt
+
+# عامل قاعده‌محور با trace استدلال
+python -m wumpus run --agent rules \
+  --input tests/fixtures/golden2_pit.txt --trace
+
+# baselineها
+python -m wumpus run --agent greedy --input data/maps/example.txt
+python -m wumpus run --agent random --input data/maps/example.txt --seed 42
+```
+
+## بازتولید چرخهٔ ML و benchmark
+
+فایل باینری مدل عمداً داخل Git نگهداری نمی‌شود؛ دیتاست، تنظیمات، معیارها و دستور بازتولید ثبت شده‌اند.
+
+```bash
+# ۱) بازتولید ۱۰۰ نقشهٔ آموزشی متنوع و demonstrationهای A*
+python -m wumpus dataset \
+  --num-maps 100 --seed 100 --output-dir data/processed
+
+# ۲) آموزش و ذخیرهٔ مدل و معیارهای validation/test
+python -m wumpus train \
+  --data-dir data/processed --output-dir artifacts/models
+
+# ۳) اجرای benchmark نهایی روی holdout ثابت
+python -m wumpus benchmark \
+  --maps-dir data/maps/holdout_suite \
+  --model artifacts/models/random_forest.joblib \
+  --results-dir results
+```
+
+اگر فقط عامل‌های غیر ML مدنظر باشند:
+
+```bash
+python -m wumpus benchmark --skip-ml
+```
+
+در صورت نبود مدل، CLI به‌جای اجرای یک fallback خاموش با پیام روشن و exit code غیرصفر متوقف می‌شود.
+
+## قالب ورودی
+
+ورودی شامل ۸ سطر نقشه و چهار مقدار تنظیمات است:
+
+```text
+********
+**D*****
+*****G**
+W***P***
+********
+********
+********
+********
+100
+25
+-10
+8 8
+```
+
+نمادها: `*` خانهٔ خالی، `P` چاه، `W` غول، `D` دیوار و `G` طلا. مختصات بیرونی یک‌مبنا و به‌شکل `(row, column)` هستند.
+
+## بازتولیدپذیری و داده‌های ثبت‌شده
+
+- [`data/processed/metadata.json`](data/processed/metadata.json): schema، تعداد نمونه‌ها، profileها و توزیع کلاس‌ها؛
+- [`artifacts/models/training_metrics.json`](artifacts/models/training_metrics.json): معیارهای validation/test و confusion matrix؛
+- [`data/maps/holdout_suite/suite_manifest.json`](data/maps/holdout_suite/suite_manifest.json): seed و تنظیمات مجموعهٔ holdout؛
+- [`results/benchmark_results.csv`](results/benchmark_results.csv): ۱۰۰ ردیف خام اجرای نهایی؛
+- [`results/benchmark_summary.json`](results/benchmark_summary.json): خلاصه، نسخهٔ Python و SHA-256 مدل.
+
+## محدودیت‌ها
+
+- برچسب‌های خبره از A\* با دید کامل می‌آیند، ولی MLAgent فقط observation ناقص دارد؛ بخشی از رفتار خبره ذاتاً از روی ویژگی‌های آنلاین قابل‌بازیابی نیست.
+- دیتاست چهارکلاسه نامتوازن است و کلاس‌های `UP` و `LEFT` نمونه‌های کمتری دارند؛ بنابراین macro-F1 و recall هر کلاس در کنار accuracy گزارش شده‌اند.
+- `glitter` طبق قرارداد پروژه وجود دارد، اما چون طلا هنگام ورود خودکار جمع می‌شود، در episode عادی سیگنال تصمیم‌گیری فعالی نیست.
+- اعداد زمان اجرا به سخت‌افزار و نسخهٔ کتابخانه‌ها وابسته‌اند؛ نتیجه‌گیری اصلی بر win rate، score و معیارهای ایمنی است.
+- مجموعهٔ holdout فعلی ۲۰ نقشه دارد؛ برای ادعای تعمیم قوی‌تر باید تعداد نقشه و seedهای مستقل افزایش یابد.
+
+## مستندات
+
+- [`LICENSE`](LICENSE): مجوز MIT برای استفاده و توسعهٔ پروژه؛
+- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md): قراردادها و دفتر تصمیم‌ها؛
+- [`docs/SPEC.md`](docs/SPEC.md): مشخصات فنی و رفتاری؛
+- [`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md): گزارش روش‌ها و تحلیل نتایج؛
+- [`docs/TASKBOOK.md`](docs/TASKBOOK.md): وضعیت اجرایی و کارهای باقی‌مانده؛
+- [`docs/DEMO.md`](docs/DEMO.md): سناریوی ارائهٔ ۵ دقیقه‌ای؛
+- [`tests/fixtures/GOLDEN_EXAMPLES.md`](tests/fixtures/GOLDEN_EXAMPLES.md): مثال‌های دستی حرکت‌به‌حرکت.

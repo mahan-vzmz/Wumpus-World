@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.coverage
+htmlcov/
 .dev_deps/
-artifacts/models/
-results/
+artifacts/models/*
+!artifacts/models/training_metrics.json
+results/*
+!results/benchmark_results.csv
+!results/benchmark_results.json
+!results/benchmark_summary.json
