@@ -1,0 +1,113 @@
+{
+  "base_seed": 2000,
+  "num_maps": 20,
+  "categories": [
+    {
+      "name": "01_easy",
+      "num_maps": 4,
+      "map_gen_config": {
+        "num_pits": 0,
+        "num_wumpus": 0,
+        "num_walls": 2,
+        "num_golds": 1,
+        "initial_health": 50,
+        "gold_value": 10,
+        "pit_score_delta": -15,
+        "exit_position": {
+          "row": 7,
+          "col": 7
+        }
+      }
+    },
+    {
+      "name": "02_pit_heavy",
+      "num_maps": 4,
+      "map_gen_config": {
+        "num_pits": 4,
+        "num_wumpus": 0,
+        "num_walls": 3,
+        "num_golds": 1,
+        "initial_health": 40,
+        "gold_value": 10,
+        "pit_score_delta": -15,
+        "exit_position": {
+          "row": 7,
+          "col": 7
+        }
+      }
+    },
+    {
+      "name": "03_wumpus_hazard",
+      "num_maps": 4,
+      "map_gen_config": {
+        "num_pits": 1,
+        "num_wumpus": 2,
+        "num_walls": 3,
+        "num_golds": 1,
+        "initial_health": 40,
+        "gold_value": 10,
+        "pit_score_delta": -15,
+        "exit_position": {
+          "row": 7,
+          "col": 7
+        }
+      }
+    },
+    {
+      "name": "04_gold_hunter",
+      "num_maps": 4,
+      "map_gen_config": {
+        "num_pits": 2,
+        "num_wumpus": 1,
+        "num_walls": 2,
+        "num_golds": 3,
+        "initial_health": 45,
+        "gold_value": 10,
+        "pit_score_delta": -15,
+        "exit_position": {
+          "row": 7,
+          "col": 7
+        }
+      }
+    },
+    {
+      "name": "05_hard_complex",
+      "num_maps": 4,
+      "map_gen_config": {
+        "num_pits": 3,
+        "num_wumpus": 1,
+        "num_walls": 4,
+        "num_golds": 2,
+        "initial_health": 30,
+        "gold_value": 10,
+        "pit_score_delta": -15,
+        "exit_position": {
+          "row": 7,
+          "col": 7
+        }
+      }
+    }
+  ],
+  "files": [
+    "01_easy_map_01.txt",
+    "01_easy_map_02.txt",
+    "01_easy_map_03.txt",
+    "01_easy_map_04.txt",
+    "02_pit_heavy_map_01.txt",
+    "02_pit_heavy_map_02.txt",
+    "02_pit_heavy_map_03.txt",
+    "02_pit_heavy_map_04.txt",
+    "03_wumpus_hazard_map_01.txt",
+    "03_wumpus_hazard_map_02.txt",
+    "03_wumpus_hazard_map_03.txt",
+    "03_wumpus_hazard_map_04.txt",
+    "04_gold_hunter_map_01.txt",
+    "04_gold_hunter_map_02.txt",
+    "04_gold_hunter_map_03.txt",
+    "04_gold_hunter_map_04.txt",
+    "05_hard_complex_map_01.txt",
+    "05_hard_complex_map_02.txt",
+    "05_hard_complex_map_03.txt",
+    "05_hard_complex_map_04.txt"
+  ]
+}
