@@ -77,8 +77,8 @@ def encode_observation(
 
             is_visited = 1.0 if kb.is_visited(p) else 0.0
             is_safe = 1.0 if kb.is_safe(p) else 0.0
-            is_pos_pit = 1.0 if status == CellStatus.POSSIBLE_PIT else 0.0
-            is_pos_wumpus = 1.0 if status == CellStatus.POSSIBLE_WUMPUS else 0.0
+            is_pos_pit = 1.0 if kb.has_possible_pit(p) else 0.0
+            is_pos_wumpus = 1.0 if kb.has_possible_wumpus(p) else 0.0
             is_blocked = 1.0 if status == CellStatus.BLOCKED else 0.0
             is_current = 1.0 if p == obs.position else 0.0
 

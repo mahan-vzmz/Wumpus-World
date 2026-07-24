@@ -89,6 +89,22 @@ class TestDatasetAndSplit:
 
         assert len(np.unique(data["map_ids"])) == 12
 
+    def test_custom_test_ratio_is_honored(self):
+        config = DatasetConfig(num_maps=12, seed=1250)
+        data = generate_dataset(config)
+
+        train, val, test = split_dataset(
+            data,
+            train_ratio=0.5,
+            val_ratio=0.25,
+            test_ratio=0.25,
+            seed=42,
+        )
+
+        assert len(np.unique(train["map_ids"])) == 6
+        assert len(np.unique(val["map_ids"])) == 3
+        assert len(np.unique(test["map_ids"])) == 3
+
 
 class TestMLModels:
 

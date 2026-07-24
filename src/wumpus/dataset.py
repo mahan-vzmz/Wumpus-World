@@ -184,8 +184,16 @@ def split_dataset(
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
     seed: int = 42,
+    test_ratio: float | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray]]:
     """Split dataset by map_id so no map appears in more than one split (T503)."""
+    if test_ratio is None:
+        test_ratio = 1.0 - train_ratio - val_ratio
+    if min(train_ratio, val_ratio, test_ratio) < 0:
+        raise ValueError("dataset split ratios cannot be negative")
+    if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
+        raise ValueError("dataset split ratios must sum to 1.0")
+
     map_ids = np.unique(data["map_ids"])
     rng = np.random.default_rng(seed)
     rng.shuffle(map_ids)

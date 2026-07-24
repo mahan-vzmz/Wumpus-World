@@ -13,7 +13,6 @@ import hashlib
 import json
 import platform
 import sys
-import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -24,9 +23,9 @@ from wumpus.agents.random_agent import RandomAgent
 from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
 from wumpus.domain import Status
-from wumpus.engine import compute_diagnostic_score, compute_score, init_state, step
-from wumpus.observation import make_observation
+from wumpus.engine import compute_diagnostic_score, compute_score
 from wumpus.parser import parse_input
+from wumpus.runner import run_episode
 
 
 @dataclass
@@ -64,35 +63,10 @@ def run_single_benchmark(
     text = map_path.read_text(encoding="utf-8")
     parsed = parse_input(text)
 
-    # Build public_map_info
-    public_info: dict[str, Any] = {
-        "grid_size": parsed.config.grid_size,
-        "exit_position": parsed.config.exit_position,
-    }
-    if agent_name == "search":
-        public_info["game_map"] = parsed.game_map
-
-    t0 = time.perf_counter()
-    error_msg: str | None = None
-
-    try:
-        agent_obj.reset(parsed.config, public_info, seed)
-        state = init_state(parsed.game_map, parsed.config)
-
-        while state.status == Status.RUNNING:
-            obs = make_observation(parsed.game_map, parsed.config, state)
-            action = agent_obj.choose_action(obs)
-            state = step(parsed.game_map, parsed.config, state, action)
-
-    except Exception as e:
-        elapsed = (time.perf_counter() - t0) * 1000.0
-        error_msg = str(e)
-        if 'state' not in locals():
-            state = init_state(parsed.game_map, parsed.config)
-        state.status = Status.AGENT_ERROR
-        state.event_log.append(f"AGENT_ERROR: {e}")
-
-    elapsed = (time.perf_counter() - t0) * 1000.0
+    result = run_episode(agent_obj, parsed.game_map, parsed.config, seed=seed)
+    state = result.state
+    elapsed = result.runtime_ms
+    error_msg = result.error
 
     won = state.status == Status.WON
     score = compute_score(state, parsed.config)
@@ -169,7 +143,11 @@ def run_benchmark_suite(
     # Save to CSV
     csv_path = results_dir / "benchmark_results.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(asdict(rows[0]).keys()))
+        writer = csv.DictWriter(
+            f,
+            fieldnames=list(asdict(rows[0]).keys()),
+            lineterminator="\n",
+        )
         writer.writeheader()
         for r in rows:
             writer.writerow(asdict(r))

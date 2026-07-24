@@ -45,7 +45,12 @@ class SearchAgent(Agent):
         """Return the next pre-planned action."""
         if self._step_index >= len(self._plan):
             # Plan exhausted but game still running — should not happen
-            # with a correct solver, but pick first legal action as fallback.
+            # with a correct solver.  Do not hide the invariant violation
+            # behind an IndexError when the observation has no legal moves.
+            if not observation.legal_actions:
+                raise RuntimeError(
+                    "SearchAgent exhausted its plan and no legal action is available"
+                )
             return observation.legal_actions[0]
 
         action = self._plan[self._step_index]

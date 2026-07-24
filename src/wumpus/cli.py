@@ -9,11 +9,13 @@ from wumpus.agents.random_agent import RandomAgent
 from wumpus.agents.rule_agent import RuleAgent
 from wumpus.agents.search_agent import SearchAgent
 from wumpus.dataset import DatasetConfig, generate_dataset, save_dataset, split_dataset
+from wumpus.domain import Status
 from wumpus.engine import compute_score
 from wumpus.evaluation.benchmark import generate_summary_table, run_benchmark_suite
 from wumpus.evaluation.suite_generator import generate_map_suite
 from wumpus.ml import evaluate_classifier, save_model, train_models
 from wumpus.parser import InputFormatError, parse_input
+from wumpus.runner import run_episode
 
 
 def _create_agent(name: str, parsed, model_path: Path | None = None):
@@ -34,16 +36,6 @@ def _create_agent(name: str, parsed, model_path: Path | None = None):
             )
         return MLAgent(model_path=resolved_model)
     raise ValueError(f"Unknown agent: {name}")
-
-
-def _get_public_map_info(agent_name: str, parsed):
-    info = {
-        "grid_size": parsed.config.grid_size,
-        "exit_position": parsed.config.exit_position,
-    }
-    if agent_name == "search":
-        info["game_map"] = parsed.game_map
-    return info
 
 
 def main() -> int:
@@ -104,7 +96,17 @@ def main() -> int:
             return 1
 
         data = load_dataset(data_path)
-        train, val, test = split_dataset(data)
+        split_config = {}
+        metadata_path = data_path / "metadata.json"
+        if metadata_path.is_file():
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            split_config = metadata.get("dataset_config", {})
+        train, val, test = split_dataset(
+            data,
+            train_ratio=float(split_config.get("train_ratio", 0.7)),
+            val_ratio=float(split_config.get("val_ratio", 0.15)),
+            test_ratio=float(split_config.get("test_ratio", 0.15)),
+        )
 
         print(f"Dataset loaded: {len(data['y'])} samples.")
         print(f"Splits -> Train: {len(train['y'])}, Val: {len(val['y'])}, Test: {len(test['y'])}")
@@ -219,21 +221,9 @@ def main() -> int:
             print(f"Error: {exc}")
             return 2
 
-        public_info = _get_public_map_info(args.agent, parsed)
-
         print(f"Running '{args.agent}' agent on '{input_path.name}' with seed {args.seed}...")
-
-        agent.reset(parsed.config, public_info, args.seed)
-
-        from wumpus.domain import Status
-        from wumpus.engine import init_state, step
-        from wumpus.observation import make_observation
-
-        state = init_state(parsed.game_map, parsed.config)
-        while state.status == Status.RUNNING:
-            obs = make_observation(parsed.game_map, parsed.config, state)
-            action = agent.choose_action(obs)
-            state = step(parsed.game_map, parsed.config, state, action)
+        result = run_episode(agent, parsed.game_map, parsed.config, seed=args.seed)
+        state = result.state
 
         print("\n--- Event Log ---")
         for event in state.event_log:
@@ -246,7 +236,7 @@ def main() -> int:
         print(f"Gold collected: {state.collected_gold}")
         print(f"Pit entries: {state.pit_entries}")
 
-        if state.status == Status.WON:
+        if state.status is Status.WON:
             score = compute_score(state, parsed.config)
             print(f"Final score: {score}")
 

@@ -77,6 +77,44 @@ class TestKnowledgeBaseInference:
         assert kb.status(Position(0, 1)) == CellStatus.POSSIBLE_WUMPUS
         assert kb.status(Position(1, 0)) == CellStatus.POSSIBLE_WUMPUS
 
+    def test_breeze_and_stench_track_independent_hazards(self):
+        """A cell can be implicated by both percept types simultaneously."""
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(
+            Position(0, 0),
+            breeze=True,
+            stench=True,
+            glitter=False,
+            legal_actions=(Action.RIGHT, Action.DOWN),
+        )
+
+        for cell in (Position(0, 1), Position(1, 0)):
+            assert kb.has_possible_pit(cell)
+            assert kb.has_possible_wumpus(cell)
+            assert not kb.is_safe(cell)
+            assert not kb.is_dangerous(cell)
+
+    def test_visited_cell_remains_safe_after_old_suspicion(self):
+        """Visiting a previously suspected cell clears its actionable risk."""
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(
+            Position(0, 0),
+            breeze=True,
+            stench=False,
+            glitter=False,
+            legal_actions=(Action.RIGHT, Action.DOWN),
+        )
+        kb.update(
+            Position(1, 0),
+            breeze=True,
+            stench=False,
+            glitter=False,
+            legal_actions=(Action.UP, Action.DOWN, Action.RIGHT),
+        )
+
+        assert kb.is_visited(Position(1, 0))
+        assert kb.is_safe(Position(1, 0))
+
     def test_clearing_suspicion_when_visited_elsewhere_no_breeze(self):
         """
         1. Breeze at (0,0) -> (0,1) and (1,0) are POSSIBLE_PIT.

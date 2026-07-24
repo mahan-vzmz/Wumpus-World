@@ -47,6 +47,17 @@ def run_episode(
         # ۱. راه‌اندازی عامل
         agent.reset(config, public_map_info, seed)
 
+        # SearchAgent can prove that no safe route exists before the first
+        # transition.  Represent that outcome explicitly instead of asking an
+        # empty plan to choose a fallback action.
+        search_result = getattr(agent, "search_result", None)
+        if search_result is not None and not search_result.solved:
+            state.status = Status.NO_SOLUTION
+            reason = search_result.reason or "no safe path to exit exists"
+            state.event_log.append(f"NO_SOLUTION: {reason}")
+            elapsed = (time.perf_counter() - start_time) * 1000.0
+            return RunResult(state=state, error=None, runtime_ms=elapsed)
+
         # ۲. حلقهٔ اصلی بازی
         while state.status == Status.RUNNING:
             # ساخت مشاهده برای عامل

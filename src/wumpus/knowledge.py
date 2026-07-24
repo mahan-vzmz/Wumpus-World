@@ -58,6 +58,11 @@ class KnowledgeBase:
         # implicates each candidate cell.
         self._pit_sources: dict[Position, set[Position]] = defaultdict(set)
         self._wumpus_sources: dict[Position, set[Position]] = defaultdict(set)
+        # Pit and Wumpus beliefs are independent.  A cell can be implicated
+        # by both percepts at the same time, so a single CellStatus value is
+        # kept only as a backwards-compatible aggregate view.
+        self._confirmed_pits: set[Position] = set()
+        self._confirmed_wumpuses: set[Position] = set()
 
         # Known gold locations (seen via glitter but not yet collected)
         self.known_gold: set[Position] = set()
@@ -73,7 +78,11 @@ class KnowledgeBase:
         return self._status.get(pos, CellStatus.UNKNOWN)
 
     def is_safe(self, pos: Position) -> bool:
-        return self.status(pos) in (CellStatus.SAFE,)
+        return (
+            self.status(pos) is CellStatus.SAFE
+            and not self.has_pit_suspicion(pos)
+            and not self.has_wumpus_suspicion(pos)
+        )
 
     def is_visited(self, pos: Position) -> bool:
         return pos in self._visited
@@ -84,8 +93,45 @@ class KnowledgeBase:
         return s in (CellStatus.SAFE, CellStatus.UNKNOWN) or pos in self._visited
 
     def is_dangerous(self, pos: Position) -> bool:
-        s = self.status(pos)
-        return s in (CellStatus.CONFIRMED_PIT, CellStatus.CONFIRMED_WUMPUS, CellStatus.BLOCKED)
+        return (
+            self.status(pos) is CellStatus.BLOCKED
+            or pos in self._confirmed_pits
+            or pos in self._confirmed_wumpuses
+        )
+
+    def has_pit_suspicion(self, pos: Position) -> bool:
+        """Return whether *pos* is a possible or confirmed pit."""
+        return pos in self._confirmed_pits or (
+            pos not in self._visited and bool(self._pit_sources.get(pos))
+        )
+
+    def has_wumpus_suspicion(self, pos: Position) -> bool:
+        """Return whether *pos* is a possible or confirmed Wumpus."""
+        return pos in self._confirmed_wumpuses or (
+            pos not in self._visited and bool(self._wumpus_sources.get(pos))
+        )
+
+    def has_possible_pit(self, pos: Position) -> bool:
+        """Return whether *pos* is a possible (not confirmed) pit."""
+        return (
+            pos not in self._visited
+            and pos not in self._confirmed_pits
+            and bool(self._pit_sources.get(pos))
+        )
+
+    def has_possible_wumpus(self, pos: Position) -> bool:
+        """Return whether *pos* is a possible (not confirmed) Wumpus."""
+        return (
+            pos not in self._visited
+            and pos not in self._confirmed_wumpuses
+            and bool(self._wumpus_sources.get(pos))
+        )
+
+    def has_confirmed_pit(self, pos: Position) -> bool:
+        return pos in self._confirmed_pits
+
+    def has_confirmed_wumpus(self, pos: Position) -> bool:
+        return pos in self._confirmed_wumpuses
 
     def frontier(self) -> list[Position]:
         """Unvisited, safe cells adjacent to visited cells — best exploration targets."""
@@ -204,52 +250,74 @@ class KnowledgeBase:
 
     def _clear_pit_suspicion(self, cell: Position, source: Position) -> None:
         """Remove pit suspicion on `cell` caused by `source`."""
-        s = self.status(cell)
-        if s in (CellStatus.POSSIBLE_PIT,):
+        if cell not in self._confirmed_pits:
             self._pit_sources[cell].discard(source)
             if not self._pit_sources[cell]:
                 # No more sources implicating this cell as a possible pit
-                if self.status(cell) == CellStatus.POSSIBLE_PIT:
-                    self._set_status(cell, CellStatus.UNKNOWN,
-                                     f"pit cleared: no breeze from ({source.row+1},{source.col+1})")
-                    self._try_mark_safe(cell)
+                self._refresh_aggregate_status(
+                    cell,
+                    f"pit cleared: no breeze from ({source.row+1},{source.col+1})",
+                )
 
     def _clear_wumpus_suspicion(self, cell: Position, source: Position) -> None:
-        s = self.status(cell)
-        if s in (CellStatus.POSSIBLE_WUMPUS,):
+        if cell not in self._confirmed_wumpuses:
             self._wumpus_sources[cell].discard(source)
             if not self._wumpus_sources[cell]:
-                if self.status(cell) == CellStatus.POSSIBLE_WUMPUS:
-                    self._set_status(cell, CellStatus.UNKNOWN,
-                                     f"wumpus cleared: no stench from ({source.row+1},{source.col+1})")
-                    self._try_mark_safe(cell)
+                self._refresh_aggregate_status(
+                    cell,
+                    f"wumpus cleared: no stench from ({source.row+1},{source.col+1})",
+                )
 
     def _add_hazard_candidates(self, source: Position,
                                neighbors: list[Position], is_pit: bool) -> None:
         """Mark unresolved neighbors as possible pit/wumpus candidates."""
         for n in neighbors:
             s = self.status(n)
-            if n in self._visited or s in (CellStatus.SAFE, CellStatus.BLOCKED,
-                                            CellStatus.CONFIRMED_PIT, CellStatus.CONFIRMED_WUMPUS):
+            if n in self._visited or s in (CellStatus.SAFE, CellStatus.BLOCKED):
                 continue
             if is_pit:
-                if s not in (CellStatus.POSSIBLE_WUMPUS, CellStatus.CONFIRMED_WUMPUS):
-                    self._pit_sources[n].add(source)
-                    if s != CellStatus.POSSIBLE_PIT:
-                        self._set_status(n, CellStatus.POSSIBLE_PIT,
-                                         f"breeze at ({source.row+1},{source.col+1})")
+                if n in self._confirmed_pits or n in self._confirmed_wumpuses:
+                    continue
+                self._pit_sources[n].add(source)
+                self._refresh_aggregate_status(
+                    n, f"breeze at ({source.row+1},{source.col+1})"
+                )
             else:
-                if s not in (CellStatus.POSSIBLE_PIT, CellStatus.CONFIRMED_PIT):
-                    self._wumpus_sources[n].add(source)
-                    if s != CellStatus.POSSIBLE_WUMPUS:
-                        self._set_status(n, CellStatus.POSSIBLE_WUMPUS,
-                                         f"stench at ({source.row+1},{source.col+1})")
+                if n in self._confirmed_pits or n in self._confirmed_wumpuses:
+                    continue
+                self._wumpus_sources[n].add(source)
+                self._refresh_aggregate_status(
+                    n, f"stench at ({source.row+1},{source.col+1})"
+                )
 
     def _try_mark_safe(self, cell: Position) -> None:
         """If cell has no hazard suspicion and isn't visited/blocked, mark SAFE."""
         s = self.status(cell)
-        if s == CellStatus.UNKNOWN and cell not in self._visited:
+        if (
+            s == CellStatus.UNKNOWN
+            and cell not in self._visited
+            and not self.has_pit_suspicion(cell)
+            and not self.has_wumpus_suspicion(cell)
+        ):
             self._set_status(cell, CellStatus.SAFE, "no hazard suspicion")
+
+    def _refresh_aggregate_status(self, cell: Position, reason: str) -> None:
+        """Refresh the legacy single-status view from independent beliefs."""
+        if self._status.get(cell) is CellStatus.BLOCKED:
+            return
+        if cell in self._visited:
+            target = CellStatus.SAFE
+        elif cell in self._confirmed_pits:
+            target = CellStatus.CONFIRMED_PIT
+        elif cell in self._confirmed_wumpuses:
+            target = CellStatus.CONFIRMED_WUMPUS
+        elif self.has_possible_pit(cell):
+            target = CellStatus.POSSIBLE_PIT
+        elif self.has_possible_wumpus(cell):
+            target = CellStatus.POSSIBLE_WUMPUS
+        else:
+            target = CellStatus.UNKNOWN
+        self._set_status(cell, target, reason)
 
     def _propagate(self) -> None:
         """Single-candidate elimination: if a breeze/stench source has only
@@ -263,15 +331,16 @@ class KnowledgeBase:
                 if percept.breeze:
                     candidates = [
                         n for n in self._valid_neighbors(src)
-                        if self.status(n) == CellStatus.POSSIBLE_PIT
+                        if self.has_possible_pit(n)
                     ]
                     # Also count confirmed pits that already explain this breeze
                     confirmed = [
                         n for n in self._valid_neighbors(src)
-                        if self.status(n) == CellStatus.CONFIRMED_PIT
+                        if self.has_confirmed_pit(n)
                     ]
                     if not confirmed and len(candidates) == 1:
                         c = candidates[0]
+                        self._confirmed_pits.add(c)
                         self._set_status(c, CellStatus.CONFIRMED_PIT,
                                          f"only candidate for breeze at ({src.row+1},{src.col+1})")
                         changed = True
@@ -279,14 +348,15 @@ class KnowledgeBase:
                 if percept.stench:
                     candidates = [
                         n for n in self._valid_neighbors(src)
-                        if self.status(n) == CellStatus.POSSIBLE_WUMPUS
+                        if self.has_possible_wumpus(n)
                     ]
                     confirmed = [
                         n for n in self._valid_neighbors(src)
-                        if self.status(n) == CellStatus.CONFIRMED_WUMPUS
+                        if self.has_confirmed_wumpus(n)
                     ]
                     if not confirmed and len(candidates) == 1:
                         c = candidates[0]
+                        self._confirmed_wumpuses.add(c)
                         self._set_status(c, CellStatus.CONFIRMED_WUMPUS,
                                          f"only candidate for stench at ({src.row+1},{src.col+1})")
                         changed = True
@@ -296,28 +366,32 @@ class KnowledgeBase:
                 neighbors = self._valid_neighbors(src)
                 if percept.breeze:
                     has_confirmed_pit = any(
-                        self.status(n) == CellStatus.CONFIRMED_PIT for n in neighbors
+                        self.has_confirmed_pit(n) for n in neighbors
                     )
                     if has_confirmed_pit:
                         for n in neighbors:
-                            if self.status(n) == CellStatus.POSSIBLE_PIT:
+                            if self.has_possible_pit(n):
                                 self._pit_sources[n].discard(src)
                                 if not self._pit_sources[n]:
-                                    self._set_status(n, CellStatus.UNKNOWN,
-                                                     f"pit explained by confirmed neighbor of ({src.row+1},{src.col+1})")
+                                    self._refresh_aggregate_status(
+                                        n,
+                                        f"pit explained by confirmed neighbor of ({src.row+1},{src.col+1})",
+                                    )
                                     self._try_mark_safe(n)
                                     changed = True
 
                 if percept.stench:
                     has_confirmed_wumpus = any(
-                        self.status(n) == CellStatus.CONFIRMED_WUMPUS for n in neighbors
+                        self.has_confirmed_wumpus(n) for n in neighbors
                     )
                     if has_confirmed_wumpus:
                         for n in neighbors:
-                            if self.status(n) == CellStatus.POSSIBLE_WUMPUS:
+                            if self.has_possible_wumpus(n):
                                 self._wumpus_sources[n].discard(src)
                                 if not self._wumpus_sources[n]:
-                                    self._set_status(n, CellStatus.UNKNOWN,
-                                                     f"wumpus explained by confirmed neighbor of ({src.row+1},{src.col+1})")
+                                    self._refresh_aggregate_status(
+                                        n,
+                                        f"wumpus explained by confirmed neighbor of ({src.row+1},{src.col+1})",
+                                    )
                                     self._try_mark_safe(n)
                                     changed = True

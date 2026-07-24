@@ -380,7 +380,22 @@
 ### [x] T803 — CI، lint و coverage gate
 
 - **کار:** Ruff، pytest-cov و GitHub Actions برای Python 3.11/3.12.
-- **پذیرش:** lint سبز، ۹۹ تست سبز و پوشش هسته حداقل ۹۰٪.
+- **پذیرش:** lint سبز، ۱۰۱ تست سبز و پوشش هسته حداقل ۹۰٪.
+
+### [x] T805 — مسیرهای بدون‌راه‌حل و Runner مشترک
+
+- **کار:** تبدیل plan خالی A* به `NO_SOLUTION` و استفادهٔ CLI/benchmark از `run_episode`.
+- **پذیرش:** نقشهٔ معتبر اما حل‌ناپذیر بدون traceback، با status ساخت‌یافته خاتمه یابد.
+
+### [x] T806 — باور مستقل خطرها
+
+- **کار:** نگهداری مستقل suspicionهای pit و Wumpus و افزودن encoder/test پوشش‌دهندهٔ هر دو.
+- **پذیرش:** observation هم‌زمان breeze/stench هیچ‌کدام از دو نوع خطر را حذف نکند.
+
+### [x] T807 — بازتولید و خروجی inference
+
+- **کار:** رفع warningهای parallel inference، استفاده از نسبت‌های split ثبت‌شده و هماهنگ‌سازی SPEC با encoder واقعی.
+- **پذیرش:** benchmark با `PYTHONWARNINGS=error` سبز و artifactها از صفر قابل‌بازتولید باشند.
 
 ### [~] T804 — آماده‌سازی ارائه و انتشار
 

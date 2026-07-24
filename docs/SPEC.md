@@ -270,7 +270,7 @@ h(n) = ManhattanDistance(current_position, exit)
 - بردار نسبی خروج؛
 - breeze، stench، glitter و at_exit؛
 - چهار action قانونی؛
-- برای هر ۶۴ خانه چند channel تخت‌شده: visited، safe، possible_pit، possible_wumpus، blocked، known_gold و relative/current position.
+- برای هر ۶۴ خانه ۶ channel تخت‌شده: visited، safe، possible_pit، possible_wumpus، blocked و is_current.
 
 هیچ channel از حقیقت پنهانِ چاه یا غول استفاده نمی‌کند.
 
@@ -278,9 +278,10 @@ h(n) = ManhattanDistance(current_position, exit)
 
 - نقشه‌ها با seed و قیود اعتبار تولید می‌شوند.
 - برای هر state قابل‌مشاهده، خبره با نقشهٔ کامل action بهینه را تعیین می‌کند.
-- علاوه بر trajectory اصلی، stateهای متنوع و recoverable برای کاهش bias مسیر خبره نمونه‌برداری می‌شوند.
+- در نسخهٔ فعلی، نمونه‌ها از trajectory اصلی A* در هر نقشه استخراج می‌شوند؛
+  افزایش تنوع stateهای recoverable یک مسیر توسعهٔ آینده است.
 - داده با `map_id` به train/validation/test تقسیم می‌شود؛ یک نقشه فقط در یک split است.
-- نسخهٔ generator، config، seed و feature schema همراه داده ذخیره می‌شود.
+- config، seed و feature schema همراه داده ذخیره می‌شود.
 
 ### 9.4 مدل‌ها
 

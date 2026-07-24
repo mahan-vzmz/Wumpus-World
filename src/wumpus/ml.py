@@ -116,7 +116,10 @@ def train_models(
         max_depth=15,
         class_weight="balanced",
         random_state=seed,
-        n_jobs=-1,
+        # Inference is performed one observation at a time.  A single worker
+        # avoids joblib/sklearn parallel-context warnings and is faster than
+        # repeatedly spawning workers for scalar predictions.
+        n_jobs=1,
     )
     rf.fit(X_train, y_train)
     y_pred_rf = rf.predict(X_val)

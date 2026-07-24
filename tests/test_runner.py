@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from wumpus.agents.search_agent import SearchAgent
 from wumpus.domain import Action, GameConfig, Status
 from wumpus.parser import parse_input
 from wumpus.runner import run_episode
@@ -9,6 +10,21 @@ from wumpus.runner import run_episode
 EMPTY_MAP = """\
 ********
 ********
+********
+********
+********
+********
+********
+********
+50
+10
+-15
+8 8
+"""
+
+UNSOLVABLE_MAP = """\
+*D******
+D*******
 ********
 ********
 ********
@@ -46,3 +62,14 @@ def test_agent_exception_becomes_terminal_structured_result() -> None:
     assert result.error == "deliberate agent failure"
     assert result.state.steps == 0
     assert result.state.event_log[-1].startswith("AGENT_ERROR:")
+
+
+def test_search_no_solution_becomes_explicit_terminal_result() -> None:
+    parsed = parse_input(UNSOLVABLE_MAP)
+
+    result = run_episode(SearchAgent(), parsed.game_map, parsed.config)
+
+    assert result.state.status is Status.NO_SOLUTION
+    assert result.error is None
+    assert result.state.steps == 0
+    assert result.state.event_log[-1].startswith("NO_SOLUTION:")

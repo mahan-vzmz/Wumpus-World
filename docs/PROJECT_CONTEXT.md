@@ -113,6 +113,9 @@
 | DEC-005 | 2026-07-23 | terminal cost طلای جمع‌نشده باید در اولویت goal node در A\* اعمال شود | جلوگیری از پذیرش خروج نزدیک ولی زیر‌بهینه؛ تست رگرسیون مسیر انحرافی طلا اضافه شد | `search.py`، `test_search.py`، `SPEC.md` |
 | DEC-006 | 2026-07-23 | ML بدون مدل آموزش‌دیده fail-fast می‌شود | fallback خاموش نتیجهٔ benchmark را نامعتبر می‌کرد | `ml_agent.py`، `cli.py`، `benchmark.py` |
 | DEC-007 | 2026-07-23 | آموزش روی ۱۰۰ نقشهٔ چندپروفایلی و ارزیابی روی holdout مستقل با seed ۲۰۰۰ | کاهش domain shift و جلوگیری از گزارش عددهای غیرقابل‌بازتولید | `dataset.py`، `data/`، `results/` |
+| DEC-008 | 2026-07-24 | احتمال pit و Wumpus در KnowledgeBase مستقل نگهداری می‌شود | یک خانه می‌تواند هم‌زمان از breeze و stench متأثر باشد؛ یک status واحد اطلاعات یکی از خطرها را حذف می‌کرد | `knowledge.py`، `encoder.py`، `test_rules.py` |
+| DEC-009 | 2026-07-24 | نقشهٔ حل‌ناپذیر باید `NO_SOLUTION` تولید کند و CLI/benchmark از Runner مشترک استفاده کنند | جلوگیری از crash ناشی از plan خالی و یکسان‌سازی مدیریت خطا | `runner.py`، `cli.py`، `benchmark.py`، `test_runner.py` |
+| DEC-010 | 2026-07-24 | Random Forest با یک worker inference شود | جلوگیری از warningهای joblib در پیش‌بینی‌های تک‌نمونه‌ای و کاهش سربار ساخت worker | `ml.py`، `results/` |
 
 ## 11. وضعیت ابهامات
 

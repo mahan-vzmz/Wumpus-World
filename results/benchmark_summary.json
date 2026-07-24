@@ -4,7 +4,7 @@
     "map_count": 20,
     "maps_dir": "data/maps/holdout_suite",
     "include_ml": true,
-    "model_sha256": "0d1cca28056db8f1f402263611be84efe4d99db2761f14be3ee321023fa8d519",
+    "model_sha256": "4e83db330cb50de48d910d977f49ee7aac840b9dc81f2d8e7ee615541715ed2c",
     "python_version": "3.12.13",
     "platform": "linux"
   },
@@ -17,17 +17,17 @@
       "mean_steps": 12.8,
       "total_pits": 12,
       "wumpus_deaths": 3,
-      "mean_runtime_ms": 0.23850634996733788
+      "mean_runtime_ms": 0.20993019986690342
     },
     "ml": {
       "visibility": "Partial",
       "total_runs": 20,
       "win_rate_pct": 75.0,
-      "mean_score": 14.3,
+      "mean_score": 15.55,
       "mean_steps": 13.9,
-      "total_pits": 12,
+      "total_pits": 11,
       "wumpus_deaths": 2,
-      "mean_runtime_ms": 364.5156084499945
+      "mean_runtime_ms": 44.580769150024935
     },
     "random": {
       "visibility": "Partial",
@@ -37,17 +37,17 @@
       "mean_steps": 32.35,
       "total_pits": 13,
       "wumpus_deaths": 4,
-      "mean_runtime_ms": 0.46917594999058565
+      "mean_runtime_ms": 0.40895329998420493
     },
     "rules": {
       "visibility": "Partial",
       "total_runs": 20,
       "win_rate_pct": 95.0,
-      "mean_score": 25.3,
-      "mean_steps": 18.75,
+      "mean_score": 24.7,
+      "mean_steps": 19.35,
       "total_pits": 2,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 4.406788450023669
+      "mean_runtime_ms": 4.75178785004573
     },
     "search": {
       "visibility": "Full",
@@ -57,7 +57,7 @@
       "mean_steps": 14.9,
       "total_pits": 0,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 1.93553814998495
+      "mean_runtime_ms": 3.3343352499969114
     }
   }
 }
