@@ -217,3 +217,39 @@ class TestRuleAgent:
         # Check first step trace contains expected entries
         first_step_trace = agent.reasoning_log[0]
         assert any("NO_BREEZE" in line for line in first_step_trace)
+
+    def test_reusing_agent_does_not_leak_state_between_episodes(self):
+        """Runner reset makes a reused RuleAgent behave like a fresh instance."""
+        first_map = parse_input((FIXTURES / "golden2_pit.txt").read_text())
+        second_map = parse_input((FIXTURES / "golden1_straight.txt").read_text())
+        reused_agent = RuleAgent()
+
+        first_result = run_episode(
+            reused_agent,
+            first_map.game_map,
+            first_map.config,
+            seed=42,
+        )
+        first_kb = reused_agent._kb
+        first_reasoning_log = reused_agent.reasoning_log
+
+        reused_result = run_episode(
+            reused_agent,
+            second_map.game_map,
+            second_map.config,
+            seed=42,
+        )
+        fresh_agent = RuleAgent()
+        fresh_result = run_episode(
+            fresh_agent,
+            second_map.game_map,
+            second_map.config,
+            seed=42,
+        )
+
+        assert first_result.won
+        assert first_reasoning_log
+        assert reused_agent._kb is not first_kb
+        assert reused_agent.reasoning_log is not first_reasoning_log
+        assert reused_agent.reasoning_log == fresh_agent.reasoning_log
+        assert reused_result.state == fresh_result.state

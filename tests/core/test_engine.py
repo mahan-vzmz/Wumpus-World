@@ -385,6 +385,35 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="wall"):
             step(gm, cfg, state, Action.RIGHT)
 
+    @pytest.mark.parametrize(
+        ("position", "action"),
+        [
+            (Position(0, 3), Action.UP),
+            (Position(7, 3), Action.DOWN),
+            (Position(3, 0), Action.LEFT),
+            (Position(3, 7), Action.RIGHT),
+        ],
+    )
+    def test_out_of_bounds_move_from_each_edge_preserves_state(
+        self,
+        position: Position,
+        action: Action,
+    ) -> None:
+        """Leaving any grid edge is rejected before the state is mutated."""
+        gm = _empty_map()
+        cfg = _default_config(health=50)
+        state = init_state(gm, cfg)
+        state.position = position
+        original_log = list(state.event_log)
+
+        with pytest.raises(ValueError, match="outside the grid"):
+            step(gm, cfg, state, action)
+
+        assert state.position == position
+        assert state.steps == 0
+        assert state.health == 50
+        assert state.event_log == original_log
+
     def test_step_limit(self) -> None:
         """Engine stops after max_steps."""
         gm = _empty_map()

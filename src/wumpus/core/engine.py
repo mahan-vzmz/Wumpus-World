@@ -117,7 +117,7 @@ def step(
     dest = state.position.moved(action)
 
     # Validate legality
-    if not dest.is_inside(8):
+    if not game_map.is_inside(dest):
         raise ValueError(f"action {action.value} leads outside the grid")
     if game_map.tile_at(dest) is Tile.WALL:
         raise ValueError(f"action {action.value} leads into a wall at {dest}")

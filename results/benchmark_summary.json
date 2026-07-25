@@ -2,11 +2,11 @@
   "experiment": {
     "seed": 42,
     "map_count": 20,
-    "maps_dir": "data/maps/holdout_suite",
+    "maps_dir": "data\\maps\\holdout_suite",
     "include_ml": true,
     "model_sha256": "4e83db330cb50de48d910d977f49ee7aac840b9dc81f2d8e7ee615541715ed2c",
-    "python_version": "3.12.13",
-    "platform": "linux"
+    "python_version": "3.13.2",
+    "platform": "win32"
   },
   "summary": {
     "greedy": {
@@ -17,7 +17,7 @@
       "mean_steps": 12.8,
       "total_pits": 12,
       "wumpus_deaths": 3,
-      "mean_runtime_ms": 0.20993019986690342
+      "mean_runtime_ms": 0.47241499996744096
     },
     "ml": {
       "visibility": "Partial",
@@ -27,7 +27,7 @@
       "mean_steps": 13.9,
       "total_pits": 11,
       "wumpus_deaths": 2,
-      "mean_runtime_ms": 44.580769150024935
+      "mean_runtime_ms": 110.94979000026797
     },
     "random": {
       "visibility": "Partial",
@@ -37,7 +37,7 @@
       "mean_steps": 32.35,
       "total_pits": 13,
       "wumpus_deaths": 4,
-      "mean_runtime_ms": 0.40895329998420493
+      "mean_runtime_ms": 0.9247900006812415
     },
     "rules": {
       "visibility": "Partial",
@@ -47,7 +47,7 @@
       "mean_steps": 19.35,
       "total_pits": 2,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 4.75178785004573
+      "mean_runtime_ms": 10.59845999971003
     },
     "search": {
       "visibility": "Full",
@@ -57,7 +57,7 @@
       "mean_steps": 14.9,
       "total_pits": 0,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 3.3343352499969114
+      "mean_runtime_ms": 4.8340199999074684
     }
   }
 }

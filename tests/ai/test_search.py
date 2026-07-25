@@ -274,6 +274,29 @@ class TestHeuristic:
                 f"{fixture}: h={h_start} > plan_length={len(result.plan)}"
             )
 
+    def test_manhattan_astar_matches_reference_shortest_path_around_wall(self):
+        """A* remains optimal when a wall makes the real path longer than h."""
+        gmap = _map_from_strings([
+            "*D******",
+            "********",
+            "********",
+            "********",
+            "********",
+            "********",
+            "********",
+            "********",
+        ])
+        start = Position(0, 0)
+        exit_pos = Position(0, 3)
+        config = _default_config(exit_pos=exit_pos)
+
+        result = solve_astar(gmap, config)
+
+        assert _manhattan(start, exit_pos) == 3
+        assert result.solved
+        # Reference shortest path: DOWN, RIGHT, RIGHT, RIGHT, UP.
+        assert len(result.plan) == 5
+
 
 # ===================================================================
 # T304: SearchAgent integration with Runner
