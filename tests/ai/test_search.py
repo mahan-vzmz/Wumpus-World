@@ -111,7 +111,7 @@ class TestAStarSolver:
         assert len(result.plan) == 14
 
     def test_golden3_collects_gold(self):
-        """Map with gold, wall, wumpus, pit. Optimal collects gold: score 24."""
+        """Map with gold, wall, wumpus, pit. Optimal collects gold: score 26."""
         parsed = parse_input((FIXTURES / "golden3_complex.txt").read_text())
         result = solve_astar(parsed.game_map, parsed.config)
 

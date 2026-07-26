@@ -76,6 +76,9 @@ src/wumpus/
 │   └── ml.py              # آموزش مدل‌های Random Forest / Decision Tree و Action Masking
 ├── agents/                # 🟣 پیاده‌سازی عامل‌ها (Search, Rule, ML, Greedy, Random)
 ├── evaluation/            # 🟡 ماژول‌های ارزیابی، تولید suite و بنچمارک
+├── viz/                   # 🔴 خط تولید دموی تعاملی
+│   ├── recorder.py        # ضبط frame-به-frame اپیزود (باور + trace استدلال)
+│   └── html.py            # ساخت دموی HTML تک‌فایلی و خودکفا
 └── cli.py                 # رابط خط فرمان کاربر (CLI)
 ```
 
@@ -239,11 +242,17 @@ python -m wumpus dataset --num-maps 100 --seed 100
 python -m wumpus train
 python -m wumpus run --agent ml --input data/maps/example.txt
 
-# ۴. اجرای بنچمارک روی holdout مستقل
+# ۴. اجرای بنچمارک روی holdout مستقل (دقیقاً همان فرمانی که نتایج بخش ۷ را تولید کرد)
 python -m wumpus benchmark \
   --maps-dir data/maps/holdout_suite \
-  --model artifacts/models/random_forest.joblib
+  --model artifacts/models/random_forest.joblib \
+  --results-dir results \
+  --seeds 42 123 777 2024 31337
 ```
+
+> ⚠️ حذف `--seeds` باعث می‌شود بنچمارک فقط با seed پیش‌فرض `42` اجرا شود (۲۰ episode
+> به‌جای ۱۰۰ برای هر عامل) و اعداد آن با جدول بخش ۷ یکی نخواهد بود. همچنین اجرای
+> `benchmark` بدون `--maps-dir` روی `data/maps/test_suite` می‌رود، نه holdout.
 
 ---
 *گزارش فنی و مستندات پروژه Wumpus World AI - نسخه ۱.۰ نهایی*

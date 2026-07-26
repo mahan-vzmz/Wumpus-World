@@ -94,7 +94,7 @@ class TestGolden1Straight:
 # ---------------------------------------------------------------------------
 
 class TestGolden2Pit:
-    """Pit at (4,5). Path A through pit: score=-1. Path B avoiding: score=34."""
+    """Pit at (4,5). Path A through pit: score=-1. Optimal path avoids it: score=36."""
 
     def setup_method(self) -> None:
         self.gm = _map_from_string(

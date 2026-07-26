@@ -96,6 +96,9 @@ src/wumpus/
 │   └── ml.py              # ML model training, metrics & action masking
 ├── agents/                # Agents (Search / Rule / ML / Greedy / Random)
 ├── evaluation/            # Benchmark suite runner & generator
+├── viz/                   # Interactive demo pipeline
+│   ├── recorder.py        # Frame-by-frame episode recorder (belief + trace)
+│   └── html.py            # Self-contained single-file HTML demo builder
 ├── cli.py                 # Command line interface (CLI)
 └── __main__.py            # Python entrypoint
 ```
@@ -230,14 +233,16 @@ python -m wumpus benchmark --maps-dir data/maps/holdout_suite --model artifacts/
 
 </div>
 
-اگر فقط عامل‌های غیر ML مدنظر باشند:
+اگر فقط عامل‌های غیر ML مدنظر باشند (همان فلگ‌های مرحلهٔ ۳ را نگه دارید):
 <div dir="ltr">
 
 ```bash
-python -m wumpus benchmark --skip-ml
+python -m wumpus benchmark --skip-ml --maps-dir data/maps/holdout_suite --results-dir results --seeds 42 123 777 2024 31337
 ```
 
 </div>
+
+> ⚠️ **هشدار:** اجرای `benchmark` بدون فلگ، به‌صورت پیش‌فرض روی `data/maps/test_suite` و تنها با seed `42` اجرا می‌شود و فایل‌های `results/` را **بازنویسی می‌کند**. برای آزمایش، حتماً `--results-dir` موقت بدهید.
 
 در صورت نبود مدل، CLI به‌جای اجرای یک fallback خاموش با پیام روشن و exit code غیرصفر متوقف می‌شود.
 
@@ -275,7 +280,7 @@ W***P***
 - **فایل متادیتا ([`data/processed/metadata.json`](data/processed/metadata.json)):** شامل schema، تعداد نمونه‌ها، profileها و توزیع کلاس‌ها؛
 - **معیارهای مدل ([`artifacts/models/training_metrics.json`](artifacts/models/training_metrics.json)):** معیارهای validation/test و confusion matrix؛
 - **پیکربندی Holdout ([`data/maps/holdout_suite/suite_manifest.json`](data/maps/holdout_suite/suite_manifest.json)):** seed و تنظیمات مجموعهٔ ارزیابی؛
-- **نتایج خام ([`results/benchmark_results.csv`](results/benchmark_results.csv)):** ۱۰۰ ردیف دادهٔ خام اجرای نهایی؛
+- **نتایج خام ([`results/benchmark_results.csv`](results/benchmark_results.csv)):** ۵۰۰ ردیف دادهٔ خام (۱۰۰ episode × ۵ عامل)؛
 - **خلاصهٔ ارزیابی ([`results/benchmark_summary.json`](results/benchmark_summary.json)):** خلاصهٔ بنچمارک، نسخهٔ Python و SHA-256 مدل.
 
 ---
@@ -297,7 +302,9 @@ W***P***
 - **مشخصات فنی ([`docs/SPEC.md`](docs/SPEC.md)):** مشخصات فنی و رفتاری سیستم؛
 - **گزارش جامع ([`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)):** گزارش روش‌ها و تحلیل نتایج بنچمارک؛
 - **دفترچه تسک‌ها ([`docs/TASKBOOK.md`](docs/TASKBOOK.md)):** وضعیت اجرایی و کارهای باقی‌مانده؛
+- **نقشهٔ راه ([`docs/ROADMAP.md`](docs/ROADMAP.md)):** برنامه‌ریزی مرحله‌ای و ترتیب اجرای epicها؛
 - **سناریوی ارائه ([`docs/DEMO.md`](docs/DEMO.md)):** سناریوی ارائهٔ ۵ دقیقه‌ای؛
+- **چک‌لیست تحویل ([`docs/DELIVERY_CHECKLIST.md`](docs/DELIVERY_CHECKLIST.md)):** ممیزی نهایی تحویل و کنترل‌های کیفیت؛
 - **مثال‌های گام‌به‌گام ([`tests/fixtures/GOLDEN_EXAMPLES.md`](tests/fixtures/GOLDEN_EXAMPLES.md)):** مثال‌های دستی حرکت‌به‌حرکت.
 
 </div>
