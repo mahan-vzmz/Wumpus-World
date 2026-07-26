@@ -69,6 +69,38 @@ class TestRecorderStructure:
 
 class TestRecorderAgentAgnostic:
 
+    def test_search_agent_records_planner_diagnostics(self):
+        from wumpus.agents.search_agent import SearchAgent
+
+        rec = record_episode_from_file(
+            FIXTURES / "golden3_complex.txt", SearchAgent(), seed=1, agent_name="search"
+        )
+        planner = rec["planner"]
+        assert planner["solved"] is True
+        assert planner["plan_length"] == rec["result"]["steps"]
+        assert planner["expanded_nodes"] > 0
+        assert rec["result"]["won"] is True
+        # Offline planner keeps no belief state and no reasoning trace.
+        assert all(frame["belief"] is None for frame in rec["frames"])
+
+    def test_unsolvable_map_records_no_solution_without_moving(self):
+        from wumpus.agents.search_agent import SearchAgent
+        from wumpus.core.parser import parse_input
+        from wumpus.viz.recorder import record_episode
+
+        sealed = (
+            "*D******\n"
+            "D*******\n" + "********\n" * 6 + "50\n10\n-15\n8 8\n"
+        )
+        parsed = parse_input(sealed)
+        rec = record_episode(
+            SearchAgent(), parsed.game_map, parsed.config, seed=1, agent_name="search"
+        )
+        assert rec["planner"]["solved"] is False
+        assert rec["result"]["status"] == "NO_SOLUTION"
+        assert len(rec["frames"]) == 1
+        assert rec["frames"][0]["action"] is None
+
     def test_agent_without_kb_yields_no_belief_layer(self):
         rec = record_episode_from_file(
             FIXTURES / "golden1_straight.txt", RandomAgent(), seed=3, agent_name="random"

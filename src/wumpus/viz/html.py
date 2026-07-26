@@ -1,14 +1,13 @@
 """Standalone HTML demo builder.
 
-Curates a set of episodes (easy → very hard), records them with
-:mod:`wumpus.viz.recorder`, and injects the JSON payload into a single
-self-contained HTML page — no server, no build step, no network. The page
-plays the episodes back with the agent's live belief map, its reasoning log,
-and an "X-ray" toggle that reveals the hidden truth.
+Curates a set of maps (easy → very hard), records **every agent** on each of
+them with :mod:`wumpus.viz.recorder`, and injects the JSON payload into a
+single self-contained HTML page — no server, no build step, no network.
 
-The player is data-driven and agent-agnostic: episodes whose frames carry no
-``belief``/``trace`` simply render without those layers, so future steps can
-add the search/ML/baseline agents by only changing the curation list.
+The player shows, per map, an agent switcher ("MIND"): the rule-based
+reasoner with its live belief map and reasoning log, the full-visibility A*
+planner (X-ray on by default — it sees everything), the ML imitator with its
+own belief map, and the greedy/random baselines with a visited trail.
 """
 
 from __future__ import annotations
@@ -18,13 +17,31 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wumpus.agents.greedy_agent import GreedyExitAgent
+from wumpus.agents.ml_agent import MLAgent
+from wumpus.agents.random_agent import RandomAgent
 from wumpus.agents.rule_agent import RuleAgent
+from wumpus.agents.search_agent import SearchAgent
 from wumpus.viz.recorder import record_episode_from_file
+
+DEFAULT_MODEL_PATH = Path("artifacts/models/random_forest.joblib")
+
+#: Fixed switcher order; "rules" first — it is the star of the demo.
+AGENT_ORDER: tuple[str, ...] = ("rules", "search", "ml", "greedy", "random")
+
+#: agent -> (display label, visibility)
+AGENT_META: dict[str, tuple[str, str]] = {
+    "rules": ("RULE-BASED", "fog"),
+    "search": ("A* SEARCH", "full"),
+    "ml": ("ML FOREST", "fog"),
+    "greedy": ("GREEDY", "fog"),
+    "random": ("RANDOM", "fog"),
+}
 
 
 @dataclass(frozen=True)
 class DemoEpisodeSpec:
-    """One curated tab of the demo."""
+    """One curated map tab of the demo."""
 
     map_path: str  # repo-relative
     episode_id: str
@@ -64,41 +81,92 @@ CURATED_EPISODES: tuple[DemoEpisodeSpec, ...] = (
     DemoEpisodeSpec(
         "data/maps/holdout_suite/05_hard_complex_map_03.txt",
         "last-stand", "Last Stand", 5,
-        "It refuses the deadly gamble — and pays the price.",
+        "The map that broke the reasoner. Can any mind escape?",
         fatal=True,
     ),
 )
+
+_SHARED_KEYS = ("truth", "exit", "config", "grid_size", "map_name")
+
+
+def _make_agent(name: str, model_path: Path | None):
+    if name == "rules":
+        return RuleAgent()
+    if name == "search":
+        return SearchAgent()
+    if name == "ml":
+        return MLAgent(model_path=model_path or DEFAULT_MODEL_PATH)
+    if name == "greedy":
+        return GreedyExitAgent()
+    if name == "random":
+        return RandomAgent()
+    raise ValueError(f"unknown demo agent '{name}'")
 
 
 def build_demo_payload(
     repo_root: Path,
     seed: int = 42,
-    agent_name: str = "rules",
+    model_path: Path | None = None,
+    include_ml: bool = True,
     specs: tuple[DemoEpisodeSpec, ...] = CURATED_EPISODES,
 ) -> dict[str, Any]:
-    """Record every curated episode and assemble the player payload."""
-    if agent_name != "rules":  # future steps: search / ml / baselines
-        raise ValueError(f"demo agent '{agent_name}' is not wired up yet")
+    """Record every agent on every curated map and assemble the payload."""
+    agent_names = [a for a in AGENT_ORDER if include_ml or a != "ml"]
+    if include_ml:
+        resolved_model = model_path or (repo_root / DEFAULT_MODEL_PATH)
+        if not resolved_model.is_file():
+            raise FileNotFoundError(
+                f"ML model not found at '{resolved_model}'. Run "
+                "'python -m wumpus train' first, or build the demo without ML."
+            )
+    else:
+        resolved_model = None
 
     episodes: list[dict[str, Any]] = []
     for spec in specs:
-        record = record_episode_from_file(
-            repo_root / spec.map_path, RuleAgent(), seed=seed, agent_name=agent_name
-        )
-        record.update(
+        runs: dict[str, dict[str, Any]] = {}
+        shared: dict[str, Any] | None = None
+        for name in agent_names:
+            record = record_episode_from_file(
+                repo_root / spec.map_path,
+                _make_agent(name, resolved_model),
+                seed=seed,
+                agent_name=name,
+            )
+            current_shared = {k: record[k] for k in _SHARED_KEYS}
+            if shared is None:
+                shared = current_shared
+            else:
+                assert shared == current_shared, "map/config must match across agents"
+            label, visibility = AGENT_META[name]
+            run: dict[str, Any] = {
+                "agent": name,
+                "label": label,
+                "visibility": visibility,
+                "seed": seed,
+                "result": record["result"],
+                "frames": record["frames"],
+            }
+            if "planner" in record:
+                run["planner"] = record["planner"]
+            runs[name] = run
+
+        assert shared is not None
+        episodes.append(
             {
                 "id": spec.episode_id,
                 "title": spec.title,
                 "stars": spec.stars,
                 "tagline": spec.tagline,
                 "fatal": spec.fatal,
+                **shared,
+                "runs": runs,
             }
         )
-        episodes.append(record)
 
     return {
         "generator": "python -m wumpus visualize",
-        "agent": agent_name,
+        "agents": agent_names,
         "seed": seed,
         "episodes": episodes,
     }
@@ -110,9 +178,18 @@ def build_demo_html(payload: dict[str, Any]) -> str:
     return _TEMPLATE.replace("__DATA_JSON__", data)
 
 
-def write_demo(repo_root: Path, output: Path, seed: int = 42, agent_name: str = "rules") -> int:
+def write_demo(
+    repo_root: Path,
+    output: Path,
+    seed: int = 42,
+    model_path: Path | None = None,
+    include_ml: bool = True,
+) -> int:
     """Build the demo and write it to ``output``; returns bytes written."""
-    html = build_demo_html(build_demo_payload(repo_root, seed=seed, agent_name=agent_name))
+    payload = build_demo_payload(
+        repo_root, seed=seed, model_path=model_path, include_ml=include_ml
+    )
+    html = build_demo_html(payload)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
     return len(html.encode("utf-8"))
@@ -182,8 +259,8 @@ _TEMPLATE = r"""<!doctype html>
   .lede { color: var(--ink-2); max-width: 68ch; margin: 10px 0 18px; font-size: 14.5px; }
   .lede em { color: var(--ink); font-style: normal; border-bottom: 1px dashed var(--ink-3); }
 
-  /* ---------- tabs ---------- */
-  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  /* ---------- tabs + agent switcher ---------- */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .tab {
     font-family: var(--mono); font-size: 12.5px; letter-spacing: .02em;
     background: var(--panel-2); color: var(--ink-2);
@@ -194,6 +271,23 @@ _TEMPLATE = r"""<!doctype html>
   .tab.active { color: var(--ink); background: var(--panel); border-color: rgba(65,211,220,.45); box-shadow: 0 0 0 1px rgba(65,211,220,.25), 0 4px 14px rgba(0,0,0,.35); }
   .tab .stars { color: var(--gold); margin-left: 7px; letter-spacing: -1px; }
   .tab .skull { margin-left: 7px; filter: saturate(.7); }
+
+  .agents { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .agents-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em; color: var(--ink-3); }
+  .seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+  .seg button {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em;
+    color: var(--ink-2); background: transparent; border: 0; border-right: 1px solid var(--ring);
+    padding: 7px 12px; cursor: pointer; transition: all .15s ease;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { color: var(--ink); }
+  .seg button.active { color: #06282b; background: var(--cyan); font-weight: 700; }
+  .vis-chip { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+              border: 1px solid var(--ring); border-radius: 999px; padding: 3px 10px; }
+  .vis-chip.fog  { color: var(--cyan); border-color: rgba(65,211,220,.45); background: rgba(65,211,220,.07); }
+  .vis-chip.full { color: var(--gold); border-color: rgba(242,193,78,.5); background: rgba(242,193,78,.09); }
+  .agent-note { font-size: 12.5px; color: var(--ink-3); margin: 0 0 14px; max-width: 80ch; }
 
   /* ---------- stage ---------- */
   .stage { display: grid; grid-template-columns: minmax(320px, 560px) minmax(300px, 1fr); gap: 18px; align-items: start; }
@@ -283,6 +377,7 @@ _TEMPLATE = r"""<!doctype html>
   .stamp.show span { transform: rotate(-7deg) scale(1); }
   .stamp.win span { color: var(--good); text-shadow: 0 0 22px rgba(58,201,106,.5); }
   .stamp.loss span { color: var(--bad); text-shadow: 0 0 22px rgba(224,82,82,.5); }
+  .stamp.stall span { color: var(--amber); text-shadow: 0 0 22px rgba(223,163,43,.45); }
   .flash { position: absolute; inset: 0; border-radius: 12px; pointer-events: none; opacity: 0; z-index: 6; }
   .flash.hit { animation: hitflash .55s ease; }
   @keyframes hitflash { 0% { opacity: 0; } 25% { opacity: 1; box-shadow: inset 0 0 60px 18px rgba(224,82,82,.55); } 100% { opacity: 0; } }
@@ -314,6 +409,7 @@ _TEMPLATE = r"""<!doctype html>
                  border: 1px solid var(--ring); color: var(--cyan); background: rgba(65,211,220,.07); }
   .status-chip.won  { color: var(--good); border-color: rgba(58,201,106,.5); background: rgba(58,201,106,.1); }
   .status-chip.dead { color: var(--bad); border-color: rgba(224,82,82,.5); background: rgba(224,82,82,.1); }
+  .status-chip.stall { color: var(--amber); border-color: rgba(223,163,43,.5); background: rgba(223,163,43,.1); }
 
   /* ---------- mind log ---------- */
   .log-card { display: flex; flex-direction: column; min-height: 420px; max-height: 660px; }
@@ -326,6 +422,7 @@ _TEMPLATE = r"""<!doctype html>
   .log::-webkit-scrollbar { width: 8px; } .log::-webkit-scrollbar-thumb { background: #232a38; border-radius: 8px; }
   .entry { border-left: 2px solid transparent; padding: 6px 10px; margin-bottom: 6px; border-radius: 0 8px 8px 0; opacity: .58; }
   .entry.current { border-left-color: var(--cyan); background: rgba(65,211,220,.05); opacity: 1; }
+  .entry.about { opacity: 1; border-left-color: var(--gold); background: rgba(242,193,78,.05); }
   .entry-head { color: var(--ink-3); font-size: 10.5px; letter-spacing: .14em; margin-bottom: 3px; }
   .entry-head .act { color: var(--cyan); font-weight: 700; }
   .ln { white-space: pre-wrap; word-break: break-word; color: var(--ink-2); padding: 1px 0; }
@@ -336,6 +433,7 @@ _TEMPLATE = r"""<!doctype html>
   .ln.policy  { color: #6fd7de; }
   .ln.danger  { color: #ff8383; font-weight: 700; }
   .ln.muted   { color: var(--ink-3); }
+  .ln.gold    { color: #f2c14e; }
   .legend { border-top: 1px solid var(--ring); padding: 10px 16px 13px;
             display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: var(--ink-3); }
   .legend .k { display: inline-flex; align-items: center; gap: 6px; }
@@ -380,18 +478,25 @@ _TEMPLATE = r"""<!doctype html>
 <header>
   <div class="brand"><span class="dot">◆</span> WUMPUS WORLD <span class="sub">/ inside the mind of an AI</span></div>
   <div class="hdr-meta">
-    <span class="chip" id="agentChip">AGENT · RULE-BASED</span>
+    <span class="chip" id="agentChip">MIND · RULE-BASED</span>
     <a href="https://github.com/mahan-vzmz/Wumpus-World" target="_blank" rel="noopener">source ↗</a>
   </div>
 </header>
 
 <p class="lede">
-  The agent has <em>never seen this map</em>. Pits and Wumpuses hide in the dark — all it feels is a
-  breeze or a stench from a neighbouring cell. Every coloured square below is an <em>inference</em>,
-  not vision. Hit <kbd>X</kbd> for X-ray to compare its beliefs against the hidden truth.
+  Five minds, one hidden dungeon. Most of them have <em>never seen this map</em> — pits and Wumpuses
+  hide in the dark, and all they feel is a breeze or a stench next door. Every coloured square is an
+  <em>inference</em>, not vision. Switch minds below, and hit <kbd>X</kbd> to compare belief with truth.
 </p>
 
 <nav class="tabs" id="tabs"></nav>
+
+<div class="agents">
+  <span class="agents-lbl">MIND</span>
+  <div class="seg" id="agentSeg"></div>
+  <span class="vis-chip fog" id="visChip">FOG OF WAR</span>
+</div>
+<p class="agent-note" id="agentNote"></p>
 
 <main class="stage">
   <section class="board-card">
@@ -462,7 +567,7 @@ _TEMPLATE = r"""<!doctype html>
 const DATA = __DATA_JSON__;
 
 /* ---------- state ---------- */
-const S = { ep: 0, frame: 0, playing: false, timer: null, xray: false, autoXrayDone: false };
+const S = { ep: 0, agent: "rules", frame: 0, playing: false, timer: null, xray: false, autoXrayDone: false };
 const $ = (id) => document.getElementById(id);
 const board = $("board"), logEl = $("log");
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -473,7 +578,25 @@ const BELIEF_TITLE = { u:"unknown", s:"inferred SAFE", v:"visited", p:"possible 
 const BELIEF_GLYPH = { p:"🕳", w:"👹", b:"⚠", P:"🕳", W:"👹", k:"🕳" };
 const TRUTH_GLYPH = { P:"🕳", W:"👹", G:"🪙" };
 
+const AGENT_INFO = {
+  rules:  { note: "Logical inference under fog — persistent negative facts, hazard confirmation, risk-ranked exploration. The star of this demo." },
+  search: { note: "Sees the entire map and plans the optimal route with A* before its first move — the expert upper bound, not a fair rival. X-ray is on because nothing is hidden from it." },
+  ml:     { note: "A Random Forest imitating the A* expert from 397 observable features. It keeps the same belief map as the reasoner; illegal and known-deadly moves are masked." },
+  greedy: { note: "Always steps toward the exit, ignoring every warning. No memory, no fear — watch the pit count." },
+  random: { note: "Uniform random legal moves. The floor every other mind is measured against." },
+};
+
 function ep() { return DATA.episodes[S.ep]; }
+function run() { return ep().runs[S.agent] || ep().runs[Object.keys(ep().runs)[0]]; }
+
+/* belief for frame i — agents without a KB get a visited-trail reconstruction */
+function beliefAt(i) {
+  const frames = run().frames;
+  if (frames[0].belief) return frames[Math.min(i, frames.length - 1)].belief;
+  const cells = new Array(64).fill("u");
+  for (let k = 0; k <= i && k < frames.length; k++) cells[frames[k].pos[0] * 8 + frames[k].pos[1]] = "v";
+  return cells.join("");
+}
 
 /* ---------- build board for current episode ---------- */
 let cells = [], agentEl = null;
@@ -515,7 +638,7 @@ function cellRect(i) {
   return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height };
 }
 function placeAgent() {
-  const f = ep().frames[S.frame], i = f.pos[0] * 8 + f.pos[1], rc = cellRect(i);
+  const f = run().frames[S.frame], i = f.pos[0] * 8 + f.pos[1], rc = cellRect(i);
   agentEl.style.width = rc.w + "px"; agentEl.style.height = rc.h + "px";
   agentEl.style.transform = `translate(${rc.x}px, ${rc.y}px)`;
 }
@@ -531,10 +654,35 @@ function classify(line) {
   if (/^(P[1-9]|FOLLOW|FALLBACK|  STEP)/.test(line)) return "policy";
   return "muted";
 }
+function aboutEntry() {
+  const r = run();
+  const entry = document.createElement("div");
+  entry.className = "entry about";
+  const head = document.createElement("div");
+  head.className = "entry-head";
+  head.textContent = `MIND · ${r.label}`;
+  entry.appendChild(head);
+  const note = document.createElement("div");
+  note.className = "ln muted";
+  note.textContent = AGENT_INFO[r.agent]?.note || "";
+  entry.appendChild(note);
+  if (r.planner) {
+    const p = document.createElement("div");
+    p.className = "ln gold";
+    p.textContent = r.planner.solved
+      ? `PLAN · ${r.planner.plan_length} moves · predicted score ${r.planner.predicted_score} · ` +
+        `${r.planner.expanded_nodes} nodes in ${r.planner.planning_time_ms} ms`
+      : "PLAN · no safe route exists";
+    entry.appendChild(p);
+  }
+  return entry;
+}
 function renderLog() {
-  const e = ep(); logEl.innerHTML = "";
-  for (let i = 0; i <= S.frame && i < e.frames.length; i++) {
-    const f = e.frames[i];
+  const frames = run().frames;
+  logEl.innerHTML = "";
+  logEl.appendChild(aboutEntry());
+  for (let i = 0; i <= S.frame && i < frames.length; i++) {
+    const f = frames[i];
     if (!f.trace.length && f.action === null) continue;
     const entry = document.createElement("div");
     entry.className = "entry" + (i === S.frame ? " current" : "");
@@ -551,13 +699,22 @@ function renderLog() {
     logEl.appendChild(entry);
   }
   logEl.scrollTop = logEl.scrollHeight;
-  $("logStep").textContent = `frame ${S.frame + 1}/${ep().frames.length}`;
+  $("logStep").textContent = `frame ${S.frame + 1}/${frames.length}`;
+}
+function statusLabel(status) {
+  if (status === "WON") return ["ESCAPED", "won"];
+  if (status.startsWith("DEAD")) return ["DIED", "dead"];
+  if (status === "RUNNING") return ["EXPLORING", ""];
+  if (status === "STEP_LIMIT") return ["OUT OF STEPS", "stall"];
+  if (status === "NO_SOLUTION") return ["NO ROUTE", "stall"];
+  return [status, "dead"];
 }
 function render() {
-  const e = ep(), f = e.frames[S.frame];
+  const e = ep(), frames = run().frames, f = frames[S.frame];
+  const belief = beliefAt(S.frame);
 
   for (let i = 0; i < 64; i++) {
-    const cell = cells[i], code = f.belief ? f.belief[i] : "u";
+    const cell = cells[i], code = belief[i];
     cell.className = cell.className.replace(/\bb-\S+/g, "").trim();
     if (code !== "u") cell.classList.add("b-" + code);
     const glyph = cell.firstChild;
@@ -576,31 +733,31 @@ function render() {
   $("bBreeze").classList.toggle("on", f.breeze);
   $("bStench").classList.toggle("on", f.stench);
 
+  const [label, cls] = statusLabel(f.status);
   const chip = $("statusChip");
-  if (f.status === "WON") { chip.textContent = "ESCAPED"; chip.className = "status-chip won"; }
-  else if (f.status.startsWith("DEAD")) { chip.textContent = "DIED"; chip.className = "status-chip dead"; }
-  else if (f.status === "RUNNING") { chip.textContent = "EXPLORING"; chip.className = "status-chip"; }
-  else { chip.textContent = f.status; chip.className = "status-chip dead"; }
+  chip.textContent = label;
+  chip.className = "status-chip" + (cls ? " " + cls : "");
 
   $("scrub").value = S.frame;
-  $("frameLbl").textContent = `${S.frame + 1} / ${e.frames.length}`;
+  $("frameLbl").textContent = `${S.frame + 1} / ${frames.length}`;
   renderLog();
 
   // event moments
   if (S.frame > 0) {
-    const prev = e.frames[S.frame - 1];
+    const prev = frames[S.frame - 1];
     if (prev.health - f.health > 1 && !reduced) {           // fell into a pit
       const fl = $("flash"); fl.classList.remove("hit"); void fl.offsetWidth; fl.classList.add("hit");
     }
   }
-  const last = S.frame === e.frames.length - 1;
+  const last = S.frame === frames.length - 1;
   const stamp = $("stamp");
   if (last && f.status !== "RUNNING") {
     const won = f.status === "WON";
-    $("stampText").textContent = won ? "ESCAPED" : "DEFEATED";
-    stamp.className = "stamp show " + (won ? "win" : "loss");
+    const stall = f.status === "STEP_LIMIT" || f.status === "NO_SOLUTION";
+    $("stampText").textContent = won ? "ESCAPED" : stall ? "STALLED" : "DEFEATED";
+    stamp.className = "stamp show " + (won ? "win" : stall ? "stall" : "loss");
     if (won && !reduced) confetti(f.pos);
-    if (!S.autoXrayDone) { S.autoXrayDone = true; setTimeout(() => setXray(true), 650); }
+    if (!S.autoXrayDone && !S.xray) { S.autoXrayDone = true; setTimeout(() => setXray(true), 650); }
   } else {
     stamp.className = "stamp";
   }
@@ -626,7 +783,7 @@ function setXray(on) {
   S.xray = on;
   $("btnXray").classList.toggle("toggled", on);
   if (on && !reduced) {                                     // sonar sweep from the agent
-    const f = ep().frames[S.frame];
+    const f = run().frames[S.frame];
     for (let i = 0; i < 64; i++) {
       const truth = cells[i].querySelector(".truth");
       if (!truth) continue;
@@ -645,18 +802,21 @@ function setXray(on) {
 
 /* ---------- playback ---------- */
 function setFrame(i, { fromUser = false } = {}) {
-  S.frame = Math.max(0, Math.min(ep().frames.length - 1, i));
+  S.frame = Math.max(0, Math.min(run().frames.length - 1, i));
   if (fromUser) stop();
   render();
 }
 function tick() {
-  if (S.frame >= ep().frames.length - 1) { stop(); return; }
+  if (S.frame >= run().frames.length - 1) { stop(); return; }
   S.frame += 1; render();
   S.timer = setTimeout(tick, +$("speed").value * 1000);
 }
 function play() {
   if (S.playing) return;
-  if (S.frame >= ep().frames.length - 1) { S.frame = 0; if (S.xray) setXray(false); S.autoXrayDone = false; }
+  if (S.frame >= run().frames.length - 1) {
+    S.frame = 0; S.autoXrayDone = false;
+    setXray(run().visibility === "full");
+  }
   S.playing = true; $("btnPlay").textContent = "❚❚";
   S.timer = setTimeout(tick, 120);
 }
@@ -665,21 +825,40 @@ function stop() {
   if (S.timer) { clearTimeout(S.timer); S.timer = null; }
 }
 
-/* ---------- episodes ---------- */
+/* ---------- agent + episode selection ---------- */
+function applyRun({ autoplay = true } = {}) {
+  const r = run();
+  S.frame = 0; S.autoXrayDone = false;
+  document.querySelectorAll("#agentSeg button").forEach(
+    (b) => b.classList.toggle("active", b.dataset.agent === S.agent)
+  );
+  $("agentChip").textContent = `MIND · ${r.label}`;
+  const vis = $("visChip");
+  vis.textContent = r.visibility === "full" ? "FULL MAP" : "FOG OF WAR";
+  vis.className = "vis-chip " + (r.visibility === "full" ? "full" : "fog");
+  $("agentNote").textContent = AGENT_INFO[r.agent]?.note || "";
+  $("credEp").textContent = `${ep().map_name} · mind: ${r.agent} · seed ${r.seed}`;
+  $("scrub").max = r.frames.length - 1;
+  setXray(r.visibility === "full");
+  if (autoplay) setTimeout(play, 450);
+}
+function selectAgent(name) {
+  if (!ep().runs[name]) return;
+  stop();
+  S.agent = name;
+  applyRun();
+}
 function selectEpisode(idx, { autoplay = true } = {}) {
   stop();
-  S.ep = idx; S.frame = 0; S.autoXrayDone = false;
-  if (S.xray) setXray(false);
+  S.ep = idx;
+  if (!ep().runs[S.agent]) S.agent = DATA.agents[0];
   const e = ep();
   document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", i === idx));
   $("epTitle").textContent = e.title;
   $("epTag").textContent = e.tagline;
-  $("credEp").textContent = `${e.map_name} · agent: ${e.agent} · seed ${e.seed}`;
-  $("scrub").max = e.frames.length - 1;
   history.replaceState(null, "", "#" + e.id);
   buildBoard();
-  render();
-  if (autoplay) setTimeout(play, 500);
+  applyRun({ autoplay });
 }
 function buildTabs() {
   const tabs = $("tabs");
@@ -693,13 +872,25 @@ function buildTabs() {
     tabs.appendChild(b);
   });
 }
+function buildAgentSeg() {
+  const seg = $("agentSeg");
+  DATA.agents.forEach((name) => {
+    const meta = DATA.episodes[0].runs[name];
+    const b = document.createElement("button");
+    b.dataset.agent = name;
+    b.textContent = meta ? meta.label : name.toUpperCase();
+    b.addEventListener("click", () => selectAgent(name));
+    seg.appendChild(b);
+  });
+}
 
 /* ---------- wiring ---------- */
 buildTabs();
+buildAgentSeg();
 $("btnPlay").addEventListener("click", () => (S.playing ? stop() : play()));
 $("btnPrev").addEventListener("click", () => setFrame(S.frame - 1, { fromUser: true }));
 $("btnNext").addEventListener("click", () => setFrame(S.frame + 1, { fromUser: true }));
-$("btnRestart").addEventListener("click", () => { setXray(false); S.autoXrayDone = false; setFrame(0, { fromUser: true }); play(); });
+$("btnRestart").addEventListener("click", () => { S.autoXrayDone = false; setXray(run().visibility === "full"); setFrame(0, { fromUser: true }); play(); });
 $("btnXray").addEventListener("click", () => setXray(!S.xray));
 $("scrub").addEventListener("input", (ev) => setFrame(+ev.target.value, { fromUser: true }));
 addEventListener("keydown", (ev) => {
@@ -708,7 +899,7 @@ addEventListener("keydown", (ev) => {
   else if (ev.key === "ArrowRight") setFrame(S.frame + 1, { fromUser: true });
   else if (ev.key === "ArrowLeft") setFrame(S.frame - 1, { fromUser: true });
   else if (ev.key.toLowerCase() === "x") setXray(!S.xray);
-  else if (ev.key.toLowerCase() === "r") { setXray(false); S.autoXrayDone = false; setFrame(0, { fromUser: true }); play(); }
+  else if (ev.key.toLowerCase() === "r") { S.autoXrayDone = false; setXray(run().visibility === "full"); setFrame(0, { fromUser: true }); play(); }
 });
 addEventListener("resize", placeAgent);
 

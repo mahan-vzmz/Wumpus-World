@@ -124,6 +124,21 @@ def record_episode(
         public_map_info["game_map"] = game_map
     agent.reset(config, public_map_info, seed)
 
+    # Offline planners (SearchAgent) expose their plan diagnostics after reset.
+    planner: dict[str, Any] | None = None
+    search_result = getattr(agent, "search_result", None)
+    if search_result is not None:
+        planner = {
+            "solved": search_result.solved,
+            "plan_length": len(search_result.plan),
+            "predicted_score": search_result.predicted_score,
+            "expanded_nodes": search_result.expanded_nodes,
+            "planning_time_ms": round(search_result.planning_time_ms, 2),
+        }
+        if not search_result.solved:
+            # Mirror the runner: an unsolvable map ends before the first move.
+            state.status = Status.NO_SOLUTION
+
     frames: list[dict[str, Any]] = []
     while state.status is Status.RUNNING:
         obs = make_observation(game_map, config, state)
@@ -168,7 +183,7 @@ def record_episode(
         )
     )
 
-    return {
+    record: dict[str, Any] = {
         "version": RECORD_VERSION,
         "agent": agent_name,
         "seed": seed,
@@ -189,6 +204,9 @@ def record_episode(
         },
         "frames": frames,
     }
+    if planner is not None:
+        record["planner"] = planner
+    return record
 
 
 def record_episode_from_file(

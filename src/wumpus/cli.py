@@ -90,25 +90,40 @@ def main() -> int:
         parents=[common],
     )
     viz_parser.add_argument("--output", type=str, default="docs/demo/index.html", help="Output HTML file")
-    viz_parser.add_argument("--agent", choices=["rules"], default="rules", help="Agent to record (more agents in future steps)")
     viz_parser.add_argument("--seed", type=int, default=42, help="Episode seed")
+    viz_parser.add_argument("--model", type=str, default=None, help="Path to trained model for the ML mind")
+    viz_parser.add_argument("--skip-ml", action="store_true", help="Build the demo without the ML mind")
 
     args = parser.parse_args()
 
     if args.command == "visualize":
-        from wumpus.viz.html import CURATED_EPISODES, write_demo
+        from wumpus.viz.html import AGENT_ORDER, CURATED_EPISODES, write_demo
 
         out_path = Path(args.output)
-        size = write_demo(Path.cwd(), out_path, seed=args.seed, agent_name=args.agent)
+        model_p = Path(args.model) if args.model else None
+        try:
+            size = write_demo(
+                Path.cwd(), out_path, seed=args.seed,
+                model_path=model_p, include_ml=not args.skip_ml,
+            )
+        except FileNotFoundError as exc:
+            if args.json:
+                print(json.dumps({"error": str(exc)}, indent=2))
+            else:
+                print(f"Error: {exc}")
+            return 2
+        minds = [a for a in AGENT_ORDER if not args.skip_ml or a != "ml"]
         if args.json:
             print(json.dumps({
                 "command": "visualize",
                 "output": str(out_path),
                 "bytes": size,
+                "minds": minds,
                 "episodes": [spec.episode_id for spec in CURATED_EPISODES],
             }, indent=2))
         else:
             print(f"Interactive demo written to '{out_path}' ({size / 1024:.0f} KB).")
+            print(f"Minds embedded: {', '.join(minds)}.")
             print("Open it directly in a browser — no server needed.")
         return 0
 
