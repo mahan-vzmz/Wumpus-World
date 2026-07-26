@@ -88,6 +88,11 @@ def train_models(
     X_train, y_train = train_data["X"], train_data["y"]
     X_val, y_val = val_data["X"], val_data["y"]
 
+    # Pin the label set to all four actions so macro-F1 is computed over the
+    # same classes as the test evaluator, even when a rare class (UP/LEFT) is
+    # missing from this particular validation split.
+    all_labels = list(range(len(Action)))
+
     models: dict[str, Any] = {}
     metrics: dict[str, dict[str, float]] = {}
 
@@ -97,7 +102,9 @@ def train_models(
     models["majority"] = maj
     metrics["majority"] = {
         "accuracy": float(accuracy_score(y_val, y_pred_maj)),
-        "macro_f1": float(f1_score(y_val, y_pred_maj, average="macro", zero_division=0)),
+        "macro_f1": float(
+            f1_score(y_val, y_pred_maj, labels=all_labels, average="macro", zero_division=0)
+        ),
     }
 
     # 2. Decision Tree
@@ -107,7 +114,9 @@ def train_models(
     models["decision_tree"] = dt
     metrics["decision_tree"] = {
         "accuracy": float(accuracy_score(y_val, y_pred_dt)),
-        "macro_f1": float(f1_score(y_val, y_pred_dt, average="macro", zero_division=0)),
+        "macro_f1": float(
+            f1_score(y_val, y_pred_dt, labels=all_labels, average="macro", zero_division=0)
+        ),
     }
 
     # 3. Random Forest (main model)
@@ -126,7 +135,9 @@ def train_models(
     models["random_forest"] = rf
     metrics["random_forest"] = {
         "accuracy": float(accuracy_score(y_val, y_pred_rf)),
-        "macro_f1": float(f1_score(y_val, y_pred_rf, average="macro", zero_division=0)),
+        "macro_f1": float(
+            f1_score(y_val, y_pred_rf, labels=all_labels, average="macro", zero_division=0)
+        ),
     }
 
     return {
