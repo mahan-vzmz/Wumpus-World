@@ -33,6 +33,14 @@ def run_episode(
     """
     start_time = time.perf_counter()
 
+    def _elapsed() -> float:
+        return (time.perf_counter() - start_time) * 1000.0
+
+    def _fail(status: Status, exc: Exception) -> RunResult:
+        state.status = status
+        state.event_log.append(f"{status.value}: {exc}")
+        return RunResult(state=state, error=str(exc), runtime_ms=_elapsed())
+
     state = init_state(game_map, config)
 
     # اطلاعات مجاز برای عامل (public_map_info)
@@ -43,43 +51,61 @@ def run_episode(
     if getattr(agent, "requires_full_map", False):
         public_map_info["game_map"] = game_map
 
+    # ۱. راه‌اندازی عامل — خطای اینجا خطای عامل است
     try:
-        # ۱. راه‌اندازی عامل
         agent.reset(config, public_map_info, seed)
-
-        # SearchAgent can prove that no safe route exists before the first
-        # transition.  Represent that outcome explicitly instead of asking an
-        # empty plan to choose a fallback action.
-        search_result = getattr(agent, "search_result", None)
-        if search_result is not None and not search_result.solved:
-            state.status = Status.NO_SOLUTION
-            reason = search_result.reason or "no safe path to exit exists"
-            state.event_log.append(f"NO_SOLUTION: {reason}")
-            elapsed = (time.perf_counter() - start_time) * 1000.0
-            return RunResult(state=state, error=None, runtime_ms=elapsed)
-
-        # ۲. حلقهٔ اصلی بازی
-        while state.status == Status.RUNNING:
-            # ساخت مشاهده برای عامل
-            obs = make_observation(game_map, config, state)
-
-            # درخواست کنش از عامل
-            action = agent.choose_action(obs)
-
-            # اعمال کنش در موتور بازی
-            state = step(game_map, config, state, action)
-
-            # اطلاع‌رسانی نتیجه به عامل (اختیاری برای عامل‌های آنلاین)
-            # در اینجا outcome را می‌توان صرفاً همان وضعیت status فرستاد 
-            agent.observe_transition(obs, action, state.status)
-
     except Exception as e:
-        # اگر خطایی از سمت عامل یا قوانین موتور رخ دهد، بازی فوراً متوقف می‌شود
-        elapsed = (time.perf_counter() - start_time) * 1000.0
-        state.status = Status.AGENT_ERROR
-        state.event_log.append(f"AGENT_ERROR: {e}")
+        return _fail(Status.AGENT_ERROR, e)
 
-        return RunResult(state=state, error=str(e), runtime_ms=elapsed)
+    # SearchAgent can prove that no safe route exists before the first
+    # transition.  Represent that outcome explicitly instead of asking an
+    # empty plan to choose a fallback action.
+    search_result = getattr(agent, "search_result", None)
+    if search_result is not None and not search_result.solved:
+        state.status = Status.NO_SOLUTION
+        reason = search_result.reason or "no safe path to exit exists"
+        state.event_log.append(f"NO_SOLUTION: {reason}")
+        return RunResult(state=state, error=None, runtime_ms=_elapsed())
 
-    elapsed = (time.perf_counter() - start_time) * 1000.0
-    return RunResult(state=state, error=None, runtime_ms=elapsed)
+    # ۲. حلقهٔ اصلی بازی
+    #
+    # خطاها با scope باریک تفکیک می‌شوند: نقص موتور/ادراک به‌عنوان ENGINE_ERROR
+    # ثبت می‌شود و به‌اشتباه به پای عامل نوشته نمی‌شود؛ خطای کد عامل یا کنش
+    # غیرقانونی به‌صورت AGENT_ERROR ثبت می‌شود.
+    while state.status == Status.RUNNING:
+        # ساخت مشاهده (سمت موتور)
+        try:
+            obs = make_observation(game_map, config, state)
+        except Exception as e:
+            return _fail(Status.ENGINE_ERROR, e)
+
+        # درخواست کنش از عامل (سمت عامل)
+        try:
+            action = agent.choose_action(obs)
+        except Exception as e:
+            return _fail(Status.AGENT_ERROR, e)
+
+        # قرارداد عامل: کنش باید قانونی باشد
+        if action not in obs.legal_actions:
+            label = getattr(action, "value", action)
+            return _fail(
+                Status.AGENT_ERROR,
+                ValueError(f"illegal action {label!r} is not in legal_actions"),
+            )
+
+        # اعمال کنش در موتور بازی (کنش از پیش قانونی است؛ خطای اینجا نقص موتور)
+        try:
+            state = step(game_map, config, state, action)
+        except Exception as e:
+            return _fail(Status.ENGINE_ERROR, e)
+
+        # اطلاع‌رسانی نتیجه به عامل (اختیاری). خطای این callback نباید نتیجهٔ
+        # قطعی‌شدهٔ بازی را پاک کند.
+        try:
+            agent.observe_transition(obs, action, state.status)
+        except Exception as e:
+            if state.status == Status.RUNNING:
+                return _fail(Status.AGENT_ERROR, e)
+            state.event_log.append(f"WARN observe_transition raised post-terminal: {e}")
+
+    return RunResult(state=state, error=None, runtime_ms=_elapsed())

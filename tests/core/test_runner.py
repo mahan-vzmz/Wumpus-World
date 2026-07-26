@@ -73,3 +73,62 @@ def test_search_no_solution_becomes_explicit_terminal_result() -> None:
     assert result.error is None
     assert result.state.steps == 0
     assert result.state.event_log[-1].startswith("NO_SOLUTION:")
+
+
+class IllegalActionAgent:
+    """Always returns UP, which is illegal from the start corner (0, 0)."""
+
+    def reset(
+        self, config: GameConfig, public_map_info: dict[str, Any], seed: int
+    ) -> None:
+        pass
+
+    def choose_action(self, observation: Any) -> Action:
+        return Action.UP
+
+    def observe_transition(
+        self, observation: Any, action: Action, outcome: Any
+    ) -> None:
+        pass
+
+
+class LegalNoopAgent:
+    """Returns the first legal action; used to reach the engine transition."""
+
+    def reset(
+        self, config: GameConfig, public_map_info: dict[str, Any], seed: int
+    ) -> None:
+        pass
+
+    def choose_action(self, observation: Any) -> Action:
+        return observation.legal_actions[0]
+
+    def observe_transition(
+        self, observation: Any, action: Action, outcome: Any
+    ) -> None:
+        pass
+
+
+def test_illegal_action_is_recorded_as_agent_error() -> None:
+    parsed = parse_input(EMPTY_MAP)
+
+    result = run_episode(IllegalActionAgent(), parsed.game_map, parsed.config)
+
+    assert result.state.status is Status.AGENT_ERROR
+    assert "illegal action" in (result.error or "")
+    assert result.state.steps == 0
+
+
+def test_engine_failure_is_recorded_as_engine_error(monkeypatch) -> None:
+    import wumpus.core.runner as runner_mod
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("engine boom")
+
+    monkeypatch.setattr(runner_mod, "step", _boom)
+    parsed = parse_input(EMPTY_MAP)
+
+    result = run_episode(LegalNoopAgent(), parsed.game_map, parsed.config)
+
+    assert result.state.status is Status.ENGINE_ERROR
+    assert "engine boom" in (result.error or "")

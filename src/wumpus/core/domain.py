@@ -32,6 +32,7 @@ class Status(str, Enum):
     NO_SOLUTION = "NO_SOLUTION"
     STEP_LIMIT = "STEP_LIMIT"
     AGENT_ERROR = "AGENT_ERROR"
+    ENGINE_ERROR = "ENGINE_ERROR"
 
 
 _ACTION_DELTAS: dict[Action, tuple[int, int]] = {
