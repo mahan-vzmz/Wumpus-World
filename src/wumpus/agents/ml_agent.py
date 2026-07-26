@@ -31,6 +31,8 @@ class MLAgent(Agent):
 
         self._kb: KnowledgeBase = KnowledgeBase()
         self._config: GameConfig | None = None
+        self._prev_health: int | None = None
+        self._prev_position: Any = None
 
     def load(self, model_path: Path) -> None:
         """Load a saved model from disk."""
@@ -41,6 +43,8 @@ class MLAgent(Agent):
     ) -> None:
         self._config = config
         self._kb = KnowledgeBase(grid_size=config.grid_size)
+        self._prev_health = None
+        self._prev_position = None
 
     def choose_action(self, observation: Observation) -> Action:
         assert self._config is not None
@@ -60,18 +64,39 @@ class MLAgent(Agent):
             legal_actions=observation.legal_actions,
         )
 
+        # Learn a survivable pit from the abnormal health drop it causes, so
+        # the agent stops routing back through it (mirrors the rule agent).
+        if (
+            self._prev_health is not None
+            and self._prev_position is not None
+            and observation.position != self._prev_position
+            and observation.health < self._prev_health - 1
+        ):
+            self._kb.mark_known_pit(observation.position)
+        self._prev_health = observation.health
+        self._prev_position = observation.position
+
         # Encode features
         x_vec = encode_observation(observation, self._kb, self._config)
 
-        # Exclude hazards that the observation-driven knowledge base has
-        # confirmed. Unknown cells remain available because partial
-        # observability sometimes requires taking a calculated risk.
-        non_dangerous_actions = tuple(
-            action
-            for action in observation.legal_actions
-            if not self._kb.is_dangerous(observation.position.moved(action))
+        # Prefer moves that are neither confirmed-deadly nor a known pit, then
+        # relax to merely-non-deadly, then to any legal move. Unknown cells stay
+        # available because partial observability sometimes needs a calculated
+        # risk.
+        def _dest(a: Action):
+            return observation.position.moved(a)
+
+        preferred = tuple(
+            a for a in observation.legal_actions
+            if not self._kb.is_dangerous(_dest(a))
+            and not self._kb.is_known_pit(_dest(a))
+            and not self._kb.has_wumpus_suspicion(_dest(a))
         )
-        candidate_actions = non_dangerous_actions or observation.legal_actions
+        non_dangerous = tuple(
+            a for a in observation.legal_actions
+            if not self._kb.is_dangerous(_dest(a))
+        )
+        candidate_actions = preferred or non_dangerous or observation.legal_actions
 
         # Predict with legal and knowledge-based action masking.
         action = predict_masked_action(self._model, x_vec, candidate_actions)
