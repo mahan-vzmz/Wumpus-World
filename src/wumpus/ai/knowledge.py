@@ -1,20 +1,28 @@
 """Knowledge Base for the rule-based agent.
 
 Maintains beliefs about each cell using observations and logical inference.
-Per SPEC §8, the KB tracks:
+The KB tracks:
   - Visited cells and their percepts (breeze, stench, glitter)
   - Cell status: SAFE, POSSIBLE_PIT, CONFIRMED_PIT, POSSIBLE_WUMPUS,
                  CONFIRMED_WUMPUS, BLOCKED, UNKNOWN
+  - Independent pit and Wumpus suspicion sources per cell
+  - Persistent negative facts (NotPit / NotWumpus) so a proven-clear cell can
+    never be re-suspected by a later observation
+  - Known pits: cells the agent stepped into and survived (traversable but
+    kept out of ordinary safe routing)
   - Frontier: unvisited cells adjacent to the explored region
   - Reasoning trace for every deduction
 
-Key inference rules (§8.2):
-  - No breeze at c  →  all valid neighbors are NOT pits
-  - No stench at c  →  all valid neighbors are NOT wumpus
-  - If cell has no pit/wumpus suspicion  →  SAFE
-  - Breeze at c  →  unresolved neighbors become PossiblePit candidates
-  - Stench at c →  unresolved neighbors become PossibleWumpus candidates
-  - If only one candidate remains for a percept source  →  CONFIRMED
+Key inference rules:
+  - No breeze at c  →  every valid neighbour is permanently NotPit
+  - No stench at c  →  every valid neighbour is permanently NotWumpus
+  - If a cell has no pit/Wumpus suspicion  →  SAFE
+  - Breeze at c  →  unresolved, non-NotPit neighbours become PossiblePit
+  - Stench at c  →  unresolved, non-NotWumpus neighbours become PossibleWumpus
+  - If exactly one unconfirmed candidate remains for a percept  →  CONFIRMED
+
+This is a multi-hazard environment (several pits and up to two Wumpuses), so
+confirming one hazard never clears a source's other candidates.
 """
 
 from __future__ import annotations
@@ -64,8 +72,17 @@ class KnowledgeBase:
         self._confirmed_pits: set[Position] = set()
         self._confirmed_wumpuses: set[Position] = set()
 
-        # Known gold locations (seen via glitter but not yet collected)
-        self.known_gold: set[Position] = set()
+        # Persistent negative facts.  A no-breeze/no-stench percept proves a
+        # neighbour cannot hold that hazard, regardless of which earlier
+        # positive percept made it a candidate.  These sets make that proof
+        # permanent so a later observation can never re-suspect the cell.
+        self._not_pit: set[Position] = set()
+        self._not_wumpus: set[Position] = set()
+
+        # Pits are survivable in this environment.  A cell the agent has
+        # actually stepped into and taken pit damage on is a *known* pit:
+        # traversable in emergencies but excluded from ordinary safe routing.
+        self._known_pits: set[Position] = set()
 
         # Reasoning trace for the current step
         self.trace: list[str] = []
@@ -101,12 +118,16 @@ class KnowledgeBase:
 
     def has_pit_suspicion(self, pos: Position) -> bool:
         """Return whether *pos* is a possible or confirmed pit."""
+        if pos in self._not_pit:
+            return False
         return pos in self._confirmed_pits or (
             pos not in self._visited and bool(self._pit_sources.get(pos))
         )
 
     def has_wumpus_suspicion(self, pos: Position) -> bool:
         """Return whether *pos* is a possible or confirmed Wumpus."""
+        if pos in self._not_wumpus:
+            return False
         return pos in self._confirmed_wumpuses or (
             pos not in self._visited and bool(self._wumpus_sources.get(pos))
         )
@@ -116,6 +137,7 @@ class KnowledgeBase:
         return (
             pos not in self._visited
             and pos not in self._confirmed_pits
+            and pos not in self._not_pit
             and bool(self._pit_sources.get(pos))
         )
 
@@ -124,6 +146,7 @@ class KnowledgeBase:
         return (
             pos not in self._visited
             and pos not in self._confirmed_wumpuses
+            and pos not in self._not_wumpus
             and bool(self._wumpus_sources.get(pos))
         )
 
@@ -132,6 +155,10 @@ class KnowledgeBase:
 
     def has_confirmed_wumpus(self, pos: Position) -> bool:
         return pos in self._confirmed_wumpuses
+
+    def is_known_pit(self, pos: Position) -> bool:
+        """Return whether the agent has stepped into *pos* and taken pit damage."""
+        return pos in self._known_pits
 
     def frontier(self) -> list[Position]:
         """Unvisited, safe cells adjacent to visited cells — best exploration targets."""
@@ -149,21 +176,50 @@ class KnowledgeBase:
                 deduped.append(p)
         return deduped
 
-    def risky_frontier(self) -> list[Position]:
-        """Unvisited cells adjacent to visited that are UNKNOWN (not safe, not confirmed danger)."""
+    def frontier_candidates(self) -> list[Position]:
+        """Unvisited, non-confirmed-deadly cells adjacent to the explored region.
+
+        This includes both ``UNKNOWN`` cells and cells merely *suspected* of a
+        pit or Wumpus.  It is the option set for a last-resort risky move when
+        no risk-free frontier remains; the caller ranks it via ``risk_score``.
+        """
         result: set[Position] = set()
         for v in self._visited:
             for n in self._valid_neighbors(v):
-                if n not in self._visited and self.status(n) == CellStatus.UNKNOWN:
-                    result.add(n)
+                if n in self._visited:
+                    continue
+                if self.is_dangerous(n):  # confirmed pit / Wumpus / wall
+                    continue
+                result.add(n)
         return sorted(result, key=lambda p: (p.row, p.col))
 
+    def risk_score(self, pos: Position) -> float:
+        """Deterministic risk estimate for an unconfirmed frontier cell.
+
+        A possible Wumpus dominates the score because it kills instantly,
+        whereas a pit is survivable; an unknown cell with no suspicion is the
+        safest gamble.  More implicating sources raise the estimate slightly.
+        """
+        score = 0.0
+        if self.has_possible_wumpus(pos):
+            score += 100.0 + 10.0 * len(self._wumpus_sources.get(pos, ()))
+        if self.has_possible_pit(pos):
+            score += 10.0 + 1.0 * len(self._pit_sources.get(pos, ()))
+        return score
+
     def safe_and_visited_cells(self) -> set[Position]:
-        """All cells the agent can safely walk through."""
+        """All cells the agent can safely walk through for *ordinary* routing.
+
+        Known pits are excluded here: they are survivable but costly, so a
+        normal safe path should route around them.  Emergency policies may
+        still cross them via the wider ``is_dangerous`` filter.
+        """
         cells: set[Position] = set()
         for r in range(self.grid_size):
             for c in range(self.grid_size):
                 p = Position(r, c)
+                if p in self._known_pits:
+                    continue
                 if p in self._visited or self.is_safe(p):
                     cells.add(p)
         return cells
@@ -193,29 +249,30 @@ class KnowledgeBase:
                 # If action is not legal, neighbor must be a wall
                 self._set_status(n, CellStatus.BLOCKED, f"wall detected from ({pos.row+1},{pos.col+1})")
 
-        # Gold tracking
+        # Glitter is recorded as a percept above.  Because the engine collects
+        # gold automatically on entry, glitter is effectively never observed in
+        # a normal episode, so no active gold-seeking target list is kept.
         if glitter:
-            self.known_gold.add(pos)
             self.trace.append(f"GLITTER at ({pos.row+1},{pos.col+1})")
 
         # --- Apply inference rules ---
         neighbors = self._valid_neighbors(pos)
 
-        # Rule 1: No breeze → neighbors are NOT pits
+        # Rule 1: No breeze → neighbors are provably NOT pits (permanent fact)
         if not breeze:
             self.trace.append(f"NO_BREEZE at ({pos.row+1},{pos.col+1})")
             for n in neighbors:
-                self._clear_pit_suspicion(n, pos)
+                self._mark_not_pit(n, pos)
         else:
             self.trace.append(f"BREEZE at ({pos.row+1},{pos.col+1})")
             # Rule 4: Breeze → unresolved neighbors become pit candidates
             self._add_hazard_candidates(pos, neighbors, is_pit=True)
 
-        # Rule 2: No stench → neighbors are NOT wumpus
+        # Rule 2: No stench → neighbors are provably NOT Wumpuses (permanent fact)
         if not stench:
             self.trace.append(f"NO_STENCH at ({pos.row+1},{pos.col+1})")
             for n in neighbors:
-                self._clear_wumpus_suspicion(n, pos)
+                self._mark_not_wumpus(n, pos)
         else:
             self.trace.append(f"STENCH at ({pos.row+1},{pos.col+1})")
             # Rule 5: Stench → unresolved neighbors become wumpus candidates
@@ -229,11 +286,20 @@ class KnowledgeBase:
         self._propagate()
 
     # ------------------------------------------------------------------
-    # Notify gold collected
+    # Notify: the agent stepped into a pit (learned from a health drop)
     # ------------------------------------------------------------------
 
-    def gold_collected(self, pos: Position) -> None:
-        self.known_gold.discard(pos)
+    def mark_known_pit(self, pos: Position) -> None:
+        """Record that *pos* is a pit the agent has entered and survived.
+
+        The cell stays walkable in emergencies but is kept out of ordinary
+        safe routing (see ``safe_and_visited_cells``).
+        """
+        if pos not in self._known_pits:
+            self._known_pits.add(pos)
+            # A cell the agent physically stood on is certainly not a Wumpus.
+            self._not_wumpus.add(pos)
+            self.trace.append(f"KNOWN_PIT at ({pos.row+1},{pos.col+1})")
 
     # ------------------------------------------------------------------
     # Internal inference helpers
@@ -248,25 +314,34 @@ class KnowledgeBase:
             self._status[pos] = status
             self.trace.append(f"SET ({pos.row+1},{pos.col+1}) = {status.name} [{reason}]")
 
-    def _clear_pit_suspicion(self, cell: Position, source: Position) -> None:
-        """Remove pit suspicion on `cell` caused by `source`."""
-        if cell not in self._confirmed_pits:
-            self._pit_sources[cell].discard(source)
-            if not self._pit_sources[cell]:
-                # No more sources implicating this cell as a possible pit
-                self._refresh_aggregate_status(
-                    cell,
-                    f"pit cleared: no breeze from ({source.row+1},{source.col+1})",
-                )
+    def _mark_not_pit(self, cell: Position, source: Position) -> None:
+        """Record the permanent fact that `cell` cannot be a pit.
 
-    def _clear_wumpus_suspicion(self, cell: Position, source: Position) -> None:
-        if cell not in self._confirmed_wumpuses:
-            self._wumpus_sources[cell].discard(source)
-            if not self._wumpus_sources[cell]:
-                self._refresh_aggregate_status(
-                    cell,
-                    f"wumpus cleared: no stench from ({source.row+1},{source.col+1})",
-                )
+        A no-breeze percept at `source` (adjacent to `cell`) proves this
+        regardless of which earlier breeze made `cell` a candidate, so every
+        pit source for the cell is dropped and it can never be re-suspected.
+        Negative direct evidence overrides any prior inferred confirmation.
+        """
+        self._not_pit.add(cell)
+        self._confirmed_pits.discard(cell)
+        self._pit_sources[cell] = set()
+        self._refresh_aggregate_status(
+            cell,
+            f"not a pit: no breeze from ({source.row+1},{source.col+1})",
+        )
+
+    def _mark_not_wumpus(self, cell: Position, source: Position) -> None:
+        """Record the permanent fact that `cell` cannot be a Wumpus.
+
+        Symmetric to :meth:`_mark_not_pit` for the no-stench percept.
+        """
+        self._not_wumpus.add(cell)
+        self._confirmed_wumpuses.discard(cell)
+        self._wumpus_sources[cell] = set()
+        self._refresh_aggregate_status(
+            cell,
+            f"not a Wumpus: no stench from ({source.row+1},{source.col+1})",
+        )
 
     def _add_hazard_candidates(self, source: Position,
                                neighbors: list[Position], is_pit: bool) -> None:
@@ -276,14 +351,22 @@ class KnowledgeBase:
             if n in self._visited or s in (CellStatus.SAFE, CellStatus.BLOCKED):
                 continue
             if is_pit:
-                if n in self._confirmed_pits or n in self._confirmed_wumpuses:
+                if (
+                    n in self._confirmed_pits
+                    or n in self._confirmed_wumpuses
+                    or n in self._not_pit  # proven safe from pits earlier
+                ):
                     continue
                 self._pit_sources[n].add(source)
                 self._refresh_aggregate_status(
                     n, f"breeze at ({source.row+1},{source.col+1})"
                 )
             else:
-                if n in self._confirmed_pits or n in self._confirmed_wumpuses:
+                if (
+                    n in self._confirmed_pits
+                    or n in self._confirmed_wumpuses
+                    or n in self._not_wumpus  # proven safe from Wumpuses earlier
+                ):
                     continue
                 self._wumpus_sources[n].add(source)
                 self._refresh_aggregate_status(
@@ -320,20 +403,31 @@ class KnowledgeBase:
         self._set_status(cell, target, reason)
 
     def _propagate(self) -> None:
-        """Single-candidate elimination: if a breeze/stench source has only
-        one unresolved candidate, that candidate is confirmed."""
+        """Single-candidate elimination.
+
+        If a breeze (resp. stench) source has exactly one remaining unconfirmed
+        candidate and no already-confirmed hazard that explains the percept,
+        that candidate must be the hazard and is confirmed.  This stays sound
+        even with multiple pits or Wumpuses: the percept guarantees *at least
+        one* adjacent hazard, so a lone surviving candidate is forced.
+
+        Note: this environment allows several pits and several Wumpuses, so we
+        deliberately do NOT clear other candidates once one hazard is confirmed
+        — a confirmed hazard proves a percept has *an* explanation, never that
+        the source's other neighbours are hazard-free.
+        """
         changed = True
         while changed:
             changed = False
 
-            # Check each visited cell with breeze
             for src, percept in self._percepts.items():
                 if percept.breeze:
                     candidates = [
                         n for n in self._valid_neighbors(src)
                         if self.has_possible_pit(n)
                     ]
-                    # Also count confirmed pits that already explain this breeze
+                    # A confirmed pit already adjacent explains the breeze; the
+                    # remaining candidate is then not forced, so do not confirm.
                     confirmed = [
                         n for n in self._valid_neighbors(src)
                         if self.has_confirmed_pit(n)
@@ -360,38 +454,3 @@ class KnowledgeBase:
                         self._set_status(c, CellStatus.CONFIRMED_WUMPUS,
                                          f"only candidate for stench at ({src.row+1},{src.col+1})")
                         changed = True
-
-            # After confirming a hazard, re-check if other cells can be cleared
-            for src, percept in self._percepts.items():
-                neighbors = self._valid_neighbors(src)
-                if percept.breeze:
-                    has_confirmed_pit = any(
-                        self.has_confirmed_pit(n) for n in neighbors
-                    )
-                    if has_confirmed_pit:
-                        for n in neighbors:
-                            if self.has_possible_pit(n):
-                                self._pit_sources[n].discard(src)
-                                if not self._pit_sources[n]:
-                                    self._refresh_aggregate_status(
-                                        n,
-                                        f"pit explained by confirmed neighbor of ({src.row+1},{src.col+1})",
-                                    )
-                                    self._try_mark_safe(n)
-                                    changed = True
-
-                if percept.stench:
-                    has_confirmed_wumpus = any(
-                        self.has_confirmed_wumpus(n) for n in neighbors
-                    )
-                    if has_confirmed_wumpus:
-                        for n in neighbors:
-                            if self.has_possible_wumpus(n):
-                                self._wumpus_sources[n].discard(src)
-                                if not self._wumpus_sources[n]:
-                                    self._refresh_aggregate_status(
-                                        n,
-                                        f"wumpus explained by confirmed neighbor of ({src.row+1},{src.col+1})",
-                                    )
-                                    self._try_mark_safe(n)
-                                    changed = True

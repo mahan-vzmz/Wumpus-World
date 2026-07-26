@@ -12,8 +12,9 @@ Covers:
 from pathlib import Path
 
 from wumpus.agents.rule_agent import RuleAgent
-from wumpus.ai.knowledge import CellStatus, KnowledgeBase
+from wumpus.ai.knowledge import CellPercept, CellStatus, KnowledgeBase
 from wumpus.core.domain import Action, GameConfig, Position, Status
+from wumpus.core.observation import Observation
 from wumpus.core.parser import parse_input
 from wumpus.core.runner import run_episode
 
@@ -253,3 +254,172 @@ class TestRuleAgent:
         assert reused_agent.reasoning_log is not first_reasoning_log
         assert reused_agent.reasoning_log == fresh_agent.reasoning_log
         assert reused_result.state == fresh_result.state
+
+
+# ===================================================================
+# Soundness fixes: persistent negative evidence, multi-hazard reasoning,
+# pit memory, and real risk-ranked exploration.
+# ===================================================================
+
+class TestKnowledgeBaseSoundness:
+
+    def test_no_breeze_clears_pit_suspicion_from_any_source(self):
+        """A no-breeze percept proves a neighbour is not a pit even when a
+        *different* cell's breeze first made it a candidate (persistent fact)."""
+        kb = KnowledgeBase(grid_size=8)
+        # Breeze at (0,1) implicates (1,1) as a possible pit.
+        kb.update(Position(0, 1), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.LEFT, Action.RIGHT, Action.DOWN))
+        assert kb.has_possible_pit(Position(1, 1))
+        # No breeze at (1,2), which is also adjacent to (1,1), proves it safe.
+        kb.update(Position(1, 2), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT))
+        assert not kb.has_possible_pit(Position(1, 1))
+        assert not kb.has_pit_suspicion(Position(1, 1))
+        assert kb.is_safe(Position(1, 1))
+
+    def test_no_stench_clears_wumpus_suspicion_from_any_source(self):
+        """Symmetric persistent negative fact for Wumpus suspicion."""
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(Position(0, 1), breeze=False, stench=True, glitter=False,
+                  legal_actions=(Action.LEFT, Action.RIGHT, Action.DOWN))
+        assert kb.has_possible_wumpus(Position(1, 1))
+        kb.update(Position(1, 2), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT))
+        assert not kb.has_possible_wumpus(Position(1, 1))
+        assert kb.is_safe(Position(1, 1))
+
+    def test_negative_fact_blocks_future_resuspicion(self):
+        """Once proven not-a-pit, a later breeze must not re-suspect the cell."""
+        kb = KnowledgeBase(grid_size=8)
+        # (1,1) proven safe via no-breeze at (1,2).
+        kb.update(Position(1, 2), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT))
+        assert not kb.has_pit_suspicion(Position(1, 1))
+        # A later breeze at (2,1) (also adjacent to (1,1)) must not re-suspect it.
+        kb.update(Position(2, 1), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT))
+        assert not kb.has_possible_pit(Position(1, 1))
+
+    def test_confirmed_wumpus_does_not_clear_a_second_candidate(self):
+        """Multi-hazard soundness: confirming one Wumpus must not mark another
+        real Wumpus safe just because it shares a stench source."""
+        w1, w2 = Position(0, 1), Position(2, 1)
+        shared, solo, ruled_out = Position(1, 1), Position(0, 0), Position(1, 0)
+        kb = KnowledgeBase(grid_size=8)
+        for src in (shared, solo):
+            kb._visited.add(src)
+            kb._percepts[src] = CellPercept(breeze=False, stench=True, glitter=False)
+        kb._visited.add(ruled_out)
+        kb._percepts[ruled_out] = CellPercept(breeze=False, stench=False, glitter=False)
+        # `shared` sees both Wumpuses; `solo` sees only w1 (ruled_out cleared).
+        kb._wumpus_sources[w1].update({shared, solo})
+        kb._wumpus_sources[w2].update({shared})
+
+        kb._propagate()
+
+        assert kb.has_confirmed_wumpus(w1)
+        assert not kb.is_safe(w2), "a real Wumpus was incorrectly cleared to SAFE"
+        assert kb.has_possible_wumpus(w2)
+
+    def test_confirmed_pit_does_not_clear_a_second_candidate(self):
+        """Same multi-hazard soundness for pits (which are always plural)."""
+        p1, p2 = Position(0, 1), Position(2, 1)
+        shared, solo, ruled_out = Position(1, 1), Position(0, 0), Position(1, 0)
+        kb = KnowledgeBase(grid_size=8)
+        for src in (shared, solo):
+            kb._visited.add(src)
+            kb._percepts[src] = CellPercept(breeze=True, stench=False, glitter=False)
+        kb._visited.add(ruled_out)
+        kb._percepts[ruled_out] = CellPercept(breeze=False, stench=False, glitter=False)
+        kb._pit_sources[p1].update({shared, solo})
+        kb._pit_sources[p2].update({shared})
+
+        kb._propagate()
+
+        assert kb.has_confirmed_pit(p1)
+        assert not kb.is_safe(p2), "a real pit was incorrectly cleared to SAFE"
+        assert kb.has_possible_pit(p2)
+
+    def test_single_candidate_confirmation_still_works(self):
+        """The sound single-candidate elimination survives the clearing removal."""
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(Position(0, 0), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.RIGHT, Action.DOWN))
+        kb.update(Position(1, 0), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.RIGHT))
+        assert kb.status(Position(0, 1)) == CellStatus.CONFIRMED_PIT
+
+
+class TestKnowledgeBasePitMemory:
+
+    def test_known_pit_excluded_from_safe_routing_but_traversable(self):
+        kb = KnowledgeBase(grid_size=8)
+        p = Position(3, 3)
+        kb.update(p, breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT))
+        assert p in kb.safe_and_visited_cells()  # visited -> normally routable
+        kb.mark_known_pit(p)
+        assert kb.is_known_pit(p)
+        assert p not in kb.safe_and_visited_cells()  # excluded from safe routing
+        assert not kb.is_dangerous(p)  # still traversable in emergencies
+
+
+class TestRiskRankedFrontier:
+
+    def test_frontier_candidates_include_suspected_cells(self):
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(Position(0, 0), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.RIGHT, Action.DOWN))
+        candidates = kb.frontier_candidates()
+        assert Position(0, 1) in candidates
+        assert Position(1, 0) in candidates
+        assert kb.risk_score(Position(0, 1)) > 0.0
+
+    def test_risk_score_ranks_wumpus_above_pit(self):
+        kb = KnowledgeBase(grid_size=8)
+        kb.update(Position(0, 0), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.RIGHT, Action.DOWN))
+        kb.update(Position(7, 7), breeze=False, stench=True, glitter=False,
+                  legal_actions=(Action.UP, Action.LEFT))
+        assert kb.risk_score(Position(6, 7)) > kb.risk_score(Position(0, 1))
+
+    def test_confirmed_hazards_excluded_from_frontier_candidates(self):
+        kb = KnowledgeBase(grid_size=8)
+        confirmed = Position(2, 2)
+        kb._confirmed_wumpuses.add(confirmed)
+        kb._status[confirmed] = CellStatus.CONFIRMED_WUMPUS
+        kb._visited.add(Position(2, 1))
+        assert confirmed not in kb.frontier_candidates()
+
+
+class TestRuleAgentSafety:
+
+    def _cornered_kb(self, agent: RuleAgent) -> None:
+        kb = agent._kb
+        here = Position(3, 3)
+        kb._visited.add(here)
+        kb._status[here] = CellStatus.SAFE
+        kb._confirmed_wumpuses.add(Position(2, 3))
+        kb._status[Position(2, 3)] = CellStatus.CONFIRMED_WUMPUS
+        kb._confirmed_pits.add(Position(4, 3))
+        kb._status[Position(4, 3)] = CellStatus.CONFIRMED_PIT
+        kb._confirmed_pits.add(Position(3, 4))
+        kb._status[Position(3, 4)] = CellStatus.CONFIRMED_PIT
+        kb._visited.add(Position(3, 2))
+        kb._status[Position(3, 2)] = CellStatus.SAFE
+
+    def test_agent_never_steps_into_confirmed_hazard_when_safe_move_exists(self):
+        agent = RuleAgent()
+        agent.reset(_default_config(), {"grid_size": 8, "exit_position": Position(7, 7)}, seed=3)
+        self._cornered_kb(agent)
+        here = Position(3, 3)
+        obs = Observation(
+            position=here, health=40, collected_gold=0, steps=5, status=Status.RUNNING,
+            breeze=True, stench=True, glitter=False, at_exit=False,
+            legal_actions=(Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT),
+        )
+        action = agent.choose_action(obs)
+        dest = here.moved(action)
+        assert action in obs.legal_actions
+        assert not agent._kb.is_dangerous(dest)
