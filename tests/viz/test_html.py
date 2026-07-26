@@ -98,6 +98,17 @@ class TestDemoHtml:
         assert len(parsed["episodes"]) == len(CURATED_EPISODES)
         assert set(parsed["episodes"][0]["runs"]) == set(AGENT_ORDER)
 
+    def test_arrow_keys_cannot_double_step_the_scrubber(self, payload):
+        """Regression: arrows must preventDefault so a focused range scrubber
+        does not also step natively, fire "input", and advance a second frame."""
+        html = build_demo_html(payload)
+        handler = html.split('addEventListener("keydown"', 1)[1].split("\n});", 1)[0]
+        for key in ("ArrowRight", "ArrowLeft"):
+            branch = handler.split(f'ev.key === "{key}"', 1)[1].split("else", 1)[0]
+            assert "preventDefault" in branch, (
+                f"{key} branch must call preventDefault to avoid double-stepping"
+            )
+
     def test_write_demo_creates_file(self, tmp_path, tiny_model_path):
         out = tmp_path / "demo" / "index.html"
         size = write_demo(REPO_ROOT, out, seed=42, model_path=tiny_model_path)

@@ -895,9 +895,12 @@ $("btnXray").addEventListener("click", () => setXray(!S.xray));
 $("scrub").addEventListener("input", (ev) => setFrame(+ev.target.value, { fromUser: true }));
 addEventListener("keydown", (ev) => {
   if (ev.target.tagName === "SELECT") return;
+  // preventDefault on the arrows matters: when the range scrubber has focus it
+  // would otherwise ALSO step its own value natively, fire "input", and advance
+  // a second frame — so one keypress skipped two frames.
   if (ev.code === "Space") { ev.preventDefault(); S.playing ? stop() : play(); }
-  else if (ev.key === "ArrowRight") setFrame(S.frame + 1, { fromUser: true });
-  else if (ev.key === "ArrowLeft") setFrame(S.frame - 1, { fromUser: true });
+  else if (ev.key === "ArrowRight") { ev.preventDefault(); setFrame(S.frame + 1, { fromUser: true }); }
+  else if (ev.key === "ArrowLeft") { ev.preventDefault(); setFrame(S.frame - 1, { fromUser: true }); }
   else if (ev.key.toLowerCase() === "x") setXray(!S.xray);
   else if (ev.key.toLowerCase() === "r") { S.autoXrayDone = false; setXray(run().visibility === "full"); setFrame(0, { fromUser: true }); play(); }
 });
