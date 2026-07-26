@@ -104,11 +104,6 @@ class KnowledgeBase:
     def is_visited(self, pos: Position) -> bool:
         return pos in self._visited
 
-    def is_passable(self, pos: Position) -> bool:
-        """Can the agent walk on this cell? (safe or visited, not blocked/confirmed danger)."""
-        s = self.status(pos)
-        return s in (CellStatus.SAFE, CellStatus.UNKNOWN) or pos in self._visited
-
     def is_dangerous(self, pos: Position) -> bool:
         return (
             self.status(pos) is CellStatus.BLOCKED

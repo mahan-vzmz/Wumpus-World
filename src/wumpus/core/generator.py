@@ -12,10 +12,25 @@ Per SPEC §10:
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from wumpus.ai.search import solve_astar
 from wumpus.core.domain import GameConfig, GameMap, Position, Tile
+
+# A solvability predicate: does a valid, winnable plan exist for this map?
+SolvabilityChecker = Callable[[GameMap, GameConfig], bool]
+
+
+def _astar_solvable(game_map: GameMap, config: GameConfig) -> bool:
+    """Default solvability check.
+
+    The A* solver is imported lazily so the ``core`` layer keeps no top-level
+    dependency on the ``ai`` layer; callers may inject their own checker to
+    decouple generation from a specific solver entirely.
+    """
+    from wumpus.ai.search import solve_astar
+
+    return solve_astar(game_map, config).solved
 
 
 @dataclass(frozen=True)
@@ -29,17 +44,45 @@ class MapGenerationConfig:
     pit_score_delta: int = -15
     exit_position: Position = Position(7, 7)
 
+    def __post_init__(self) -> None:
+        counts = {
+            "num_pits": self.num_pits,
+            "num_wumpus": self.num_wumpus,
+            "num_walls": self.num_walls,
+            "num_golds": self.num_golds,
+        }
+        for name, value in counts.items():
+            if value < 0:
+                raise ValueError(f"{name} cannot be negative")
+        # Cell (0,0) is the reserved start; objects share the other 63 cells.
+        if sum(counts.values()) > 63:
+            raise ValueError("too many objects to place on the 8x8 grid")
+        if self.initial_health <= 0:
+            raise ValueError("initial_health must be positive")
+        if self.gold_value < 0:
+            raise ValueError("gold_value cannot be negative")
+        if self.pit_score_delta > 0:
+            raise ValueError("pit_score_delta must be non-positive")
+        if not self.exit_position.is_inside(8):
+            raise ValueError("exit_position must be inside the 8x8 grid")
+
 
 def generate_map(
     gen_config: MapGenerationConfig = MapGenerationConfig(),
     seed: int = 42,
     max_attempts: int = 1000,
+    is_solvable: SolvabilityChecker | None = None,
 ) -> tuple[GameMap, GameConfig]:
     """Generate a valid, solvable Wumpus World map with the specified seed.
+
+    ``is_solvable`` is the predicate a candidate map must satisfy to be
+    accepted; it defaults to A* solvability (:func:`_astar_solvable`) but can
+    be injected to keep this module independent of any particular solver.
 
     Returns (GameMap, GameConfig).
     Raises RuntimeError if no solvable map could be generated within max_attempts.
     """
+    check_solvable = is_solvable if is_solvable is not None else _astar_solvable
     rng = random.Random(seed)
     start_pos = Position(0, 0)
     exit_pos = gen_config.exit_position
@@ -109,9 +152,8 @@ def generate_map(
             exit_position=exit_pos,
         )
 
-        # Check solvability using A*
-        result = solve_astar(game_map, config)
-        if result.solved:
+        # Accept the map only if it satisfies the solvability predicate.
+        if check_solvable(game_map, config):
             return game_map, config
 
     raise RuntimeError(

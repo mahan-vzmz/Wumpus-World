@@ -199,18 +199,9 @@ def solve_astar(
             if new_health <= 0:
                 continue  # would die of exhaustion
 
-            # Transition cost for this edge = 1 (health spent on movement)
-            edge_cost = 1
-
-            # Pit effect
+            # Pit effect: halves the (already decremented) health.
             if tile is Tile.PIT:
                 new_health = max(1, new_health // 2)
-                edge_cost += pit_penalty  # score penalty from pit
-                # Also account for the extra health lost due to pit
-                # The health_spent component: we need to track actual health
-                # loss vs just the movement cost of 1.
-                # health_loss_from_pit = (s.health - 1) - max(1, (s.health - 1) // 2)
-                # But this is already captured via the final health in the state.
 
             # Gold collection
             new_gold = s.remaining_gold
@@ -223,32 +214,11 @@ def solve_astar(
                 remaining_gold=new_gold,
             )
 
-            # g tracks total loss:
-            #   loss = (initial_health - remaining_health) + pit_entries * |pit_delta| + remaining_gold_count * gold_value
-            # But remaining_gold cost is only paid at terminal, so g tracks:
+            # g accumulates the loss incurred so far:
             #   g = (initial_health - current_health) + pit_entries * |pit_delta|
-            # This means g = (initial_health - new_health) + cumulative_pit_penalties
-            # 
-            # Simpler: g(successor) = initial_health - new_health + cumulative pit penalties
-            # Let's rewrite: since we track health in state, we can compute:
-            #   new_g = (config.initial_health - new_health) + pit_score_loss
-            #
-            # But pit_score_loss is separate from health loss. We need to track both.
-            # 
-            # Actually, let's think carefully:
-            #   loss = health_spent + pit_score_penalties + uncollected_gold_value
-            #   health_spent = initial_health - remaining_health
-            #   remaining_health is tracked in state
-            #   pit_score_penalties need to be accumulated
-            #
-            # So: g = health_spent + pit_score_penalties = (initial_health - state.health) + pit_penalties_so_far
-            # 
-            # For the edge: health goes from s.health to new_health
-            #   health_spent_this_edge = s.health - new_health (includes movement AND pit)
-            #   pit_penalty_this_edge = pit_penalty if PIT else 0
-            #
-            # new_g = node.g + (s.health - new_health) + (pit_penalty if PIT else 0)
-
+            # The health spent on this edge already covers both the movement
+            # cost and any pit halving; the pit score penalty is added on top.
+            # The uncollected-gold term is charged only at the goal (terminal).
             health_spent_this_edge = s.health - new_health
             pit_penalty_this_edge = pit_penalty if tile is Tile.PIT else 0
             new_g = node.g + health_spent_this_edge + pit_penalty_this_edge

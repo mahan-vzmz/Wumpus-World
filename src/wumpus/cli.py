@@ -169,7 +169,7 @@ def main() -> int:
         print("\n" + "=" * 80)
         print("🏆 WUMPUS WORLD BENCHMARK COMPARISON SUMMARY")
         print("=" * 80)
-        header = f"{'Agent':12s} | {'Visibility':10s} | {'Win Rate':10s} | {'Mean Score':10s} | {'Mean Steps':10s} | {'Pit Entries':11s} | {'Wumpus Deaths':13s} | {'Runtime (ms)':12s}"
+        header = f"{'Agent':12s} | {'Visibility':10s} | {'Win Rate':10s} | {'Diag Score':10s} | {'Mean Steps':10s} | {'Pit Entries':11s} | {'Wumpus Deaths':13s} | {'Runtime (ms)':12s}"
         print(header)
         print("-" * 80)
 
@@ -187,6 +187,10 @@ def main() -> int:
             print(line)
 
         print("=" * 80)
+        print(
+            "Diag Score = mean diagnostic score over all runs; the official "
+            "final score is defined only for wins."
+        )
         print(f"Raw results saved to '{res_path / 'benchmark_results.csv'}'.")
         print(f"JSON summary saved to '{res_path / 'benchmark_summary.json'}'.")
         return 0
