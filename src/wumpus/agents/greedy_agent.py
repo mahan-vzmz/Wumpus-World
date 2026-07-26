@@ -11,9 +11,9 @@ def manhattan_distance(p1: Position, p2: Position) -> int:
 
 
 class GreedyExitAgent(Agent):
-    """
-    عاملی که به‌صورت حریصانه تلاش می‌کند فاصلهٔ منهتن خود را تا در خروج کم کند.
-    اگر چند حرکت فاصله را به یک اندازه کم کنند، یکی را تصادفی انتخاب می‌کند.
+    """Baseline agent that greedily minimizes Manhattan distance to the exit.
+
+    When several moves reduce the distance equally, one is chosen at random.
     """
 
     def __init__(self) -> None:

@@ -7,9 +7,7 @@ from wumpus.core.observation import Observation
 
 
 class RandomAgent(Agent):
-    """
-    عاملی که به‌صورت تصادفی از بین کنش‌های قانونی (Legal Actions) یکی را انتخاب می‌کند.
-    """
+    """Baseline agent that picks uniformly at random among the legal actions."""
 
     def __init__(self) -> None:
         self._rng = random.Random()
@@ -20,11 +18,11 @@ class RandomAgent(Agent):
         self._rng.seed(seed)
 
     def choose_action(self, observation: Observation) -> Action:
-        # انتخاب یک کنش معتبر به‌صورت کاملاً تصادفی
+        # Pick a valid action completely at random.
         return self._rng.choice(tuple(observation.legal_actions))
 
     def observe_transition(
         self, observation: Observation, action: Action, outcome: Any
     ) -> None:
-        # عامل تصادفی نیازی به یادگیری یا حافظه ندارد
+        # The random agent has no memory or learning.
         pass

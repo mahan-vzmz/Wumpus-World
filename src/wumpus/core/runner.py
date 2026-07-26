@@ -9,7 +9,7 @@ from wumpus.core.observation import make_observation
 
 @dataclass(frozen=True)
 class RunResult:
-    """خروجی اجرای یک نقشه (Episode) توسط یک عامل."""
+    """Result of running one episode of an agent on a map."""
     state: GameState
     error: str | None = None
     runtime_ms: float = 0.0
@@ -25,11 +25,11 @@ def run_episode(
     config: GameConfig,
     seed: int = 42,
 ) -> RunResult:
-    """
-    اجرای یک بازی کامل برای عامل مشخص‌شده روی نقشهٔ داده‌شده.
-    
-    این تابع خطاهای احتمالی درون عامل (مثل انتخاب کنش غیرقانونی یا Exception) را
-    به‌صورت امن می‌گیرد تا کل آزمایش متوقف نشود.
+    """Run one full episode for the given agent on the given map.
+
+    Failures are caught and converted into a structured result (with an
+    ``AGENT_ERROR`` or ``ENGINE_ERROR`` status) so that a single bad episode
+    never aborts a whole batch experiment.
     """
     start_time = time.perf_counter()
 
@@ -43,7 +43,7 @@ def run_episode(
 
     state = init_state(game_map, config)
 
-    # اطلاعات مجاز برای عامل (public_map_info)
+    # Public info the agent is allowed to see.
     public_map_info = {
         "grid_size": config.grid_size,
         "exit_position": config.exit_position,
@@ -51,7 +51,7 @@ def run_episode(
     if getattr(agent, "requires_full_map", False):
         public_map_info["game_map"] = game_map
 
-    # ۱. راه‌اندازی عامل — خطای اینجا خطای عامل است
+    # 1. Set up the agent — a failure here is the agent's fault.
     try:
         agent.reset(config, public_map_info, seed)
     except Exception as e:
@@ -67,25 +67,25 @@ def run_episode(
         state.event_log.append(f"NO_SOLUTION: {reason}")
         return RunResult(state=state, error=None, runtime_ms=_elapsed())
 
-    # ۲. حلقهٔ اصلی بازی
+    # 2. Main game loop.
     #
-    # خطاها با scope باریک تفکیک می‌شوند: نقص موتور/ادراک به‌عنوان ENGINE_ERROR
-    # ثبت می‌شود و به‌اشتباه به پای عامل نوشته نمی‌شود؛ خطای کد عامل یا کنش
-    # غیرقانونی به‌صورت AGENT_ERROR ثبت می‌شود.
+    # Errors are separated by scope: an engine/observation fault is recorded as
+    # ENGINE_ERROR and never blamed on the agent, while a fault in the agent's
+    # own code or an illegal action is recorded as AGENT_ERROR.
     while state.status == Status.RUNNING:
-        # ساخت مشاهده (سمت موتور)
+        # Build the observation (engine side).
         try:
             obs = make_observation(game_map, config, state)
         except Exception as e:
             return _fail(Status.ENGINE_ERROR, e)
 
-        # درخواست کنش از عامل (سمت عامل)
+        # Ask the agent for an action (agent side).
         try:
             action = agent.choose_action(obs)
         except Exception as e:
             return _fail(Status.AGENT_ERROR, e)
 
-        # قرارداد عامل: کنش باید قانونی باشد
+        # Agent contract: the action must be legal.
         if action not in obs.legal_actions:
             label = getattr(action, "value", action)
             return _fail(
@@ -93,14 +93,15 @@ def run_episode(
                 ValueError(f"illegal action {label!r} is not in legal_actions"),
             )
 
-        # اعمال کنش در موتور بازی (کنش از پیش قانونی است؛ خطای اینجا نقص موتور)
+        # Apply the transition (action already validated; a fault here is the
+        # engine's).
         try:
             state = step(game_map, config, state, action)
         except Exception as e:
             return _fail(Status.ENGINE_ERROR, e)
 
-        # اطلاع‌رسانی نتیجه به عامل (اختیاری). خطای این callback نباید نتیجهٔ
-        # قطعی‌شدهٔ بازی را پاک کند.
+        # Notify the agent of the outcome (optional). A failure in this hook
+        # must not erase an already-decided terminal result.
         try:
             agent.observe_transition(obs, action, state.status)
         except Exception as e:
