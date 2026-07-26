@@ -110,7 +110,20 @@ class RuleAgent(Agent):
         pos = observation.position
         health = observation.health
 
-        # Update knowledge base with new observation
+        # Record the ground truth of having just entered this cell BEFORE the
+        # KB runs its inference: an ordinary move costs exactly 1 health, so a
+        # larger drop means the cell is a (survivable) pit. Doing this first
+        # lets a just-entered pit explain a neighbouring breeze during
+        # single-candidate confirmation.
+        if self._prev_health is None:
+            was_pit = False  # start cell is guaranteed safe by the parser
+        else:
+            was_pit = pos != self._prev_position and health < self._prev_health - 1
+        self._kb.observe_entry(pos, was_pit=was_pit)
+        self._prev_health = health
+        self._prev_position = pos
+
+        # Update knowledge base with the new percepts
         self._kb.update(
             pos=pos,
             breeze=observation.breeze,
@@ -119,34 +132,22 @@ class RuleAgent(Agent):
             legal_actions=observation.legal_actions,
         )
 
-        # Learn that the cell just entered is a (survivable) pit: an ordinary
-        # move costs exactly 1 health, so a larger drop means a pit halved it.
-        # (At health 2 the halving loses only 1 point and is indistinguishable
-        # from a normal move — an accepted blind spot.)
-        if (
-            self._prev_health is not None
-            and self._prev_position is not None
-            and pos != self._prev_position
-            and health < self._prev_health - 1
-        ):
-            self._kb.mark_known_pit(pos)
-        self._prev_health = health
-        self._prev_position = pos
-
         trace = list(self._kb.trace)  # copy KB trace
+        if was_pit:
+            trace.insert(0, f"KNOWN_PIT entered at ({pos.row+1},{pos.col+1})")
 
         passable = self._kb.safe_and_visited_cells()
 
-        # Survivable cells for a desperate retreat: everything except confirmed
-        # hazards, walls, AND any cell suspected of a Wumpus.  A pit is a
-        # survivable gamble (it only halves health), but a Wumpus kills
-        # instantly, so the agent never routes through a possible Wumpus even
-        # to reach the exit.
+        # Survivable cells for a desperate retreat: every cell except walls and
+        # anything suspected of a Wumpus. Pits — possible, confirmed, or already
+        # entered — are INCLUDED, because a pit only halves health (survivable)
+        # while a Wumpus kills instantly. So the agent will cross any pit to
+        # reach the exit, but never routes through a possible Wumpus.
         survivable = {
             Position(r, c)
             for r in range(self._config.grid_size)
             for c in range(self._config.grid_size)
-            if not self._kb.is_dangerous(Position(r, c))
+            if not self._kb.is_blocked(Position(r, c))
             and not self._kb.has_wumpus_suspicion(Position(r, c))
         }
 

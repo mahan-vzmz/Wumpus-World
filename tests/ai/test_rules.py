@@ -350,6 +350,37 @@ class TestKnowledgeBaseSoundness:
                   legal_actions=(Action.UP, Action.DOWN, Action.RIGHT))
         assert kb.status(Position(0, 1)) == CellStatus.CONFIRMED_PIT
 
+    def test_visited_pit_does_not_cause_false_pit_confirmation(self):
+        """A breeze explained by a real pit the agent has already entered must
+        NOT confirm an innocent sibling cell as a pit (regression: a visited
+        pit is neither a candidate nor previously counted as an explanation)."""
+        kb = KnowledgeBase(grid_size=8)
+        # Visit safe (0,0): rules its neighbours out as pit candidates.
+        kb.observe_entry(Position(0, 0), was_pit=False)
+        kb.update(Position(0, 0), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.RIGHT, Action.DOWN))
+        # Step onto the real pit (2,0) and take damage.
+        kb.observe_entry(Position(2, 0), was_pit=True)
+        kb.update(Position(2, 0), breeze=False, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.RIGHT))
+        # Perceive a breeze at (1,0): its only unvisited neighbour is (1,1),
+        # but the breeze is fully explained by the known pit (2,0).
+        kb.observe_entry(Position(1, 0), was_pit=False)
+        kb.update(Position(1, 0), breeze=True, stench=False, glitter=False,
+                  legal_actions=(Action.UP, Action.DOWN, Action.RIGHT))
+        assert kb.is_known_pit(Position(2, 0))
+        assert not kb.has_confirmed_pit(Position(1, 1))
+        assert not kb.is_dangerous(Position(1, 1))
+
+    def test_confirmed_pit_is_crossable_not_blocked(self):
+        """A confirmed pit is dangerous for normal routing but not a wall, so a
+        desperate retreat can still cross it (only Wumpuses and walls cannot)."""
+        kb = KnowledgeBase(grid_size=8)
+        kb._confirmed_pits.add(Position(2, 2))
+        kb._status[Position(2, 2)] = CellStatus.CONFIRMED_PIT
+        assert kb.is_dangerous(Position(2, 2))
+        assert not kb.is_blocked(Position(2, 2))
+
 
 class TestKnowledgeBasePitMemory:
 

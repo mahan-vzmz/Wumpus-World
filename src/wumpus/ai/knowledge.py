@@ -116,6 +116,10 @@ class KnowledgeBase:
             or pos in self._confirmed_wumpuses
         )
 
+    def is_blocked(self, pos: Position) -> bool:
+        """Return whether *pos* is a wall or outside the grid."""
+        return self.status(pos) is CellStatus.BLOCKED
+
     def has_pit_suspicion(self, pos: Position) -> bool:
         """Return whether *pos* is a possible or confirmed pit."""
         if pos in self._not_pit:
@@ -301,6 +305,28 @@ class KnowledgeBase:
             self._not_wumpus.add(pos)
             self.trace.append(f"KNOWN_PIT at ({pos.row+1},{pos.col+1})")
 
+    def observe_entry(self, pos: Position, was_pit: bool) -> None:
+        """Record the ground truth of physically entering *pos*.
+
+        Standing on a cell while still alive proves it is not a Wumpus.  A
+        health drop larger than the single point every move costs proves the
+        cell is a (survivable) pit; an ordinary drop proves it is *not* a pit.
+        This must be called BEFORE :meth:`update` for the same step so that a
+        just-entered pit can already explain a neighbouring breeze during
+        single-candidate confirmation (otherwise an innocent sibling cell could
+        be wrongly confirmed as a pit).
+
+        Blind spot: entering a pit at health 2 loses exactly one point, so it
+        is indistinguishable from a normal move and is mis-recorded as not a
+        pit — an accepted, documented limitation shared with the agent-side
+        detection.
+        """
+        self._not_wumpus.add(pos)
+        if was_pit:
+            self.mark_known_pit(pos)
+        else:
+            self._not_pit.add(pos)
+
     # ------------------------------------------------------------------
     # Internal inference helpers
     # ------------------------------------------------------------------
@@ -426,13 +452,16 @@ class KnowledgeBase:
                         n for n in self._valid_neighbors(src)
                         if self.has_possible_pit(n)
                     ]
-                    # A confirmed pit already adjacent explains the breeze; the
-                    # remaining candidate is then not forced, so do not confirm.
-                    confirmed = [
-                        n for n in self._valid_neighbors(src)
-                        if self.has_confirmed_pit(n)
-                    ]
-                    if not confirmed and len(candidates) == 1:
+                    # The breeze is already accounted for if a neighbour is a
+                    # confirmed pit OR a pit the agent has already stepped into
+                    # (visited, hence not a candidate but still the real cause).
+                    # Missing the known-pit case would wrongly confirm the lone
+                    # remaining candidate as a pit.
+                    explained = any(
+                        self.has_confirmed_pit(n) or self.is_known_pit(n)
+                        for n in self._valid_neighbors(src)
+                    )
+                    if not explained and len(candidates) == 1:
                         c = candidates[0]
                         self._confirmed_pits.add(c)
                         self._set_status(c, CellStatus.CONFIRMED_PIT,

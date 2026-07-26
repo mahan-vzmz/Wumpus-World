@@ -55,7 +55,21 @@ class MLAgent(Agent):
                 "or pass --model PATH."
             )
 
-        # Update KB
+        # Record the ground truth of the just-entered cell BEFORE inference
+        # (mirrors the rule agent) so a just-entered pit can explain a
+        # neighbouring breeze during single-candidate confirmation.
+        if self._prev_health is None:
+            was_pit = False
+        else:
+            was_pit = (
+                observation.position != self._prev_position
+                and observation.health < self._prev_health - 1
+            )
+        self._kb.observe_entry(observation.position, was_pit=was_pit)
+        self._prev_health = observation.health
+        self._prev_position = observation.position
+
+        # Update KB with the new percepts
         self._kb.update(
             pos=observation.position,
             breeze=observation.breeze,
@@ -63,18 +77,6 @@ class MLAgent(Agent):
             glitter=observation.glitter,
             legal_actions=observation.legal_actions,
         )
-
-        # Learn a survivable pit from the abnormal health drop it causes, so
-        # the agent stops routing back through it (mirrors the rule agent).
-        if (
-            self._prev_health is not None
-            and self._prev_position is not None
-            and observation.position != self._prev_position
-            and observation.health < self._prev_health - 1
-        ):
-            self._kb.mark_known_pit(observation.position)
-        self._prev_health = observation.health
-        self._prev_position = observation.position
 
         # Encode features
         x_vec = encode_observation(observation, self._kb, self._config)
