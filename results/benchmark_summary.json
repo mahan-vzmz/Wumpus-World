@@ -4,7 +4,7 @@
     "map_count": 20,
     "maps_dir": "data\\maps\\holdout_suite",
     "include_ml": true,
-    "model_sha256": "4e83db330cb50de48d910d977f49ee7aac840b9dc81f2d8e7ee615541715ed2c",
+    "model_sha256": "0a0cb1f1899a0856cc2a2f23a1d3e17671fbc306832b5e94a63f57d098cf97ad",
     "python_version": "3.13.2",
     "platform": "win32"
   },
@@ -17,17 +17,17 @@
       "mean_steps": 12.8,
       "total_pits": 12,
       "wumpus_deaths": 3,
-      "mean_runtime_ms": 0.47241499996744096
+      "mean_runtime_ms": 0.45269499969435856
     },
     "ml": {
       "visibility": "Partial",
       "total_runs": 20,
-      "win_rate_pct": 75.0,
-      "mean_score": 15.55,
-      "mean_steps": 13.9,
-      "total_pits": 11,
-      "wumpus_deaths": 2,
-      "mean_runtime_ms": 110.94979000026797
+      "win_rate_pct": 70.0,
+      "mean_score": 13.65,
+      "mean_steps": 19.4,
+      "total_pits": 7,
+      "wumpus_deaths": 0,
+      "mean_runtime_ms": 132.82777500062366
     },
     "random": {
       "visibility": "Partial",
@@ -37,17 +37,17 @@
       "mean_steps": 32.35,
       "total_pits": 13,
       "wumpus_deaths": 4,
-      "mean_runtime_ms": 0.9247900006812415
+      "mean_runtime_ms": 0.9478750000198488
     },
     "rules": {
       "visibility": "Partial",
       "total_runs": 20,
       "win_rate_pct": 95.0,
-      "mean_score": 24.7,
-      "mean_steps": 19.35,
+      "mean_score": 22.7,
+      "mean_steps": 21.55,
       "total_pits": 2,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 10.59845999971003
+      "mean_runtime_ms": 10.56241999976919
     },
     "search": {
       "visibility": "Full",
@@ -57,7 +57,7 @@
       "mean_steps": 14.9,
       "total_pits": 0,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 4.8340199999074684
+      "mean_runtime_ms": 3.527159999975993
     }
   }
 }

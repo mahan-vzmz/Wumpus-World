@@ -30,8 +30,8 @@
 <text x="711.0" y="254" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="white">80%</text>
 <text x="225" y="316" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#1e293b">Random Forest</text>
 <rect x="245" y="291" width="595" height="38" rx="7" fill="#e2e8f0"/>
-<rect x="245" y="291" width="446.2" height="38" rx="7" fill="#7c3aed"/>
-<text x="681.2" y="316" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="white">75%</text>
+<rect x="245" y="291" width="416.5" height="38" rx="7" fill="#7c3aed"/>
+<text x="651.5" y="316" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="white">70%</text>
 <text x="225" y="378" text-anchor="end" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#1e293b">Random baseline</text>
 <rect x="245" y="353" width="595" height="38" rx="7" fill="#e2e8f0"/>
 <rect x="245" y="353" width="0.0" height="38" rx="7" fill="#64748b"/>

@@ -4,8 +4,8 @@
 
 [![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/core%20coverage-92.37%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/core%20coverage-93.44%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
@@ -25,9 +25,9 @@
 | عامل | میزان مشاهده | نرخ برد | میانگین امتیاز تشخیصی | میانگین گام | ورود به چاه | مرگ با غول |
 | :--- | :---: | ---: | ---: | ---: | ---: | ---: |
 | **A\* Search** | Full | **100%** | **41.6** | 14.9 | **0** | **0** |
-| **Rule-based** | Partial | **95%** | **24.7** | 19.4 | **2** | **0** |
+| **Rule-based** | Partial | **95%** | **22.7** | 21.6 | **2** | **0** |
 | **Greedy baseline** | Partial | 80% | 16.1 | **12.8** | 12 | 3 |
-| **Random Forest** | Partial | 75% | 15.6 | 13.9 | 11 | 2 |
+| **Random Forest** | Partial | 70% | 13.7 | 19.4 | 7 | **0** |
 | **Random baseline** | Partial | 0% | -0.5 | 32.4 | 13 | 4 |
 
 > 📌 **نکته:** مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
@@ -115,8 +115,8 @@ pytest --cov=wumpus --cov-report=term-missing
 
 </div>
 
-- **۱۰۳ تست خودکار** سبزرنگ؛
-- **پوشش ۹۲.۳۷٪** برای کد هسته؛
+- **۱۲۴ تست خودکار** سبزرنگ؛
+- **پوشش ۹۳.۴۴٪** برای کد هسته؛
 - تست و بررسی خودکار روی Python 3.11 و 3.12 در GitHub Actions.
 
 ---
