@@ -83,9 +83,36 @@ def main() -> int:
     bench_parser.add_argument("--skip-ml", action="store_true", help="Run the benchmark without MLAgent")
     bench_parser.add_argument("--seeds", type=int, nargs="+", default=None, help="One or more seeds for multi-seed benchmarking (default: 42)")
 
+    # Command: visualize
+    viz_parser = subparsers.add_parser(
+        "visualize",
+        help="Build the interactive single-file HTML demo (belief map + reasoning log)",
+        parents=[common],
+    )
+    viz_parser.add_argument("--output", type=str, default="docs/demo/index.html", help="Output HTML file")
+    viz_parser.add_argument("--agent", choices=["rules"], default="rules", help="Agent to record (more agents in future steps)")
+    viz_parser.add_argument("--seed", type=int, default=42, help="Episode seed")
+
     args = parser.parse_args()
 
-    if args.command == "dataset":
+    if args.command == "visualize":
+        from wumpus.viz.html import CURATED_EPISODES, write_demo
+
+        out_path = Path(args.output)
+        size = write_demo(Path.cwd(), out_path, seed=args.seed, agent_name=args.agent)
+        if args.json:
+            print(json.dumps({
+                "command": "visualize",
+                "output": str(out_path),
+                "bytes": size,
+                "episodes": [spec.episode_id for spec in CURATED_EPISODES],
+            }, indent=2))
+        else:
+            print(f"Interactive demo written to '{out_path}' ({size / 1024:.0f} KB).")
+            print("Open it directly in a browser — no server needed.")
+        return 0
+
+    elif args.command == "dataset":
         if not args.json:
             print(f"Generating dataset from {args.num_maps} maps (seed={args.seed})...")
         config = DatasetConfig(num_maps=args.num_maps, seed=args.seed)

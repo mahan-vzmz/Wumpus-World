@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wumpus World — Inside the Mind of an AI</title>
+<style>
+  :root {
+    --bg: #0b0e15;
+    --panel: #131826;
+    --panel-2: #0f131d;
+    --ring: rgba(255,255,255,.07);
+    --ink: #edf1f8;
+    --ink-2: #98a2b4;
+    --ink-3: #5c6577;
+    --cyan: #41d3dc;
+    --teal: #22b07e;
+    --amber: #dfa32b;
+    --red: #e66;
+    --gold: #f2c14e;
+    --good: #3ac96a;
+    --bad: #e05252;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, "SF Mono", ui-monospace, monospace;
+    --sans: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(1100px 500px at 75% -10%, rgba(65,211,220,.07), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(223,163,43,.05), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.45;
+    padding: clamp(12px, 2.5vw, 28px);
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  kbd {
+    font-family: var(--mono); font-size: .72em; padding: 1px 6px;
+    border: 1px solid var(--ring); border-bottom-width: 2px; border-radius: 5px;
+    background: var(--panel-2); color: var(--ink-2);
+  }
+
+  /* ---------- header ---------- */
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { font-family: var(--mono); font-size: clamp(19px, 2.6vw, 26px); font-weight: 700; letter-spacing: .04em; }
+  .brand .dot { color: var(--cyan); }
+  .brand .sub { color: var(--ink-3); font-weight: 400; font-size: .62em; letter-spacing: .12em; text-transform: uppercase; }
+  .hdr-meta { font-family: var(--mono); font-size: 12px; color: var(--ink-3); display: flex; gap: 14px; align-items: center; }
+  .chip {
+    border: 1px solid var(--ring); border-radius: 999px; padding: 3px 10px;
+    color: var(--cyan); background: rgba(65,211,220,.06); letter-spacing: .08em;
+  }
+  .lede { color: var(--ink-2); max-width: 68ch; margin: 10px 0 18px; font-size: 14.5px; }
+  .lede em { color: var(--ink); font-style: normal; border-bottom: 1px dashed var(--ink-3); }
+
+  /* ---------- tabs ---------- */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .02em;
+    background: var(--panel-2); color: var(--ink-2);
+    border: 1px solid var(--ring); border-radius: 9px;
+    padding: 7px 12px; cursor: pointer; transition: all .18s ease;
+  }
+  .tab:hover { color: var(--ink); border-color: rgba(255,255,255,.16); }
+  .tab.active { color: var(--ink); background: var(--panel); border-color: rgba(65,211,220,.45); box-shadow: 0 0 0 1px rgba(65,211,220,.25), 0 4px 14px rgba(0,0,0,.35); }
+  .tab .stars { color: var(--gold); margin-left: 7px; letter-spacing: -1px; }
+  .tab .skull { margin-left: 7px; filter: saturate(.7); }
+
+  /* ---------- stage ---------- */
+  .stage { display: grid; grid-template-columns: minmax(320px, 560px) minmax(300px, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+
+  .board-card, .log-card {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 40%), var(--panel);
+    border: 1px solid var(--ring); border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  }
+  .board-card { padding: 14px; position: relative; overflow: hidden; }
+  .board-head { display: flex; justify-content: space-between; align-items: baseline; margin: 2px 4px 10px; }
+  .board-title { font-weight: 650; font-size: 15px; letter-spacing: .01em; }
+  .board-tag { color: var(--ink-3); font-size: 12px; }
+
+  .board {
+    position: relative; display: grid;
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    gap: 4px; aspect-ratio: 1 / 1;
+    background: var(--panel-2); border-radius: 12px; padding: 8px;
+    border: 1px solid rgba(255,255,255,.05);
+  }
+  .cell {
+    position: relative; border-radius: 7px; background: #0e1219;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    transition: background .45s ease, box-shadow .45s ease;
+    display: grid; place-items: center;
+  }
+  .glyph { font-size: clamp(13px, 2.6vw, 21px); line-height: 1; pointer-events: none;
+           opacity: 0; transform: scale(.6); transition: opacity .35s ease, transform .35s ease, filter .35s ease; }
+
+  /* belief layers */
+  .b-s { background: rgba(34,176,126,.13); box-shadow: inset 0 0 0 1px rgba(34,176,126,.28); }
+  .b-v { background: #1b2431; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .b-v::after { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%;
+                background: rgba(255,255,255,.16); }
+  .b-p { background: rgba(223,163,43,.15); box-shadow: inset 0 0 0 1px rgba(223,163,43,.35); }
+  .b-w { background: rgba(230,102,102,.13); box-shadow: inset 0 0 0 1px rgba(230,102,102,.35); }
+  .b-b { background: linear-gradient(135deg, rgba(223,163,43,.16) 50%, rgba(230,102,102,.16) 50%);
+         box-shadow: inset 0 0 0 1px rgba(223,140,60,.4); }
+  .b-p .glyph, .b-w .glyph, .b-b .glyph { opacity: .5; transform: scale(.86); filter: grayscale(.5); }
+  .b-P { background: rgba(223,163,43,.30); box-shadow: inset 0 0 0 2px rgba(223,163,43,.8); }
+  .b-W { background: rgba(224,82,82,.28);  box-shadow: inset 0 0 0 2px rgba(224,82,82,.85); }
+  .b-P .glyph, .b-W .glyph { opacity: 1; transform: scale(1); filter: none; animation: pop .5s ease; }
+  .b-k { background: #1b2431; box-shadow: inset 0 0 0 2px rgba(223,163,43,.55); }
+  .b-k .glyph { opacity: .85; transform: scale(.95); }
+  .b-x { background: repeating-linear-gradient(45deg, #232833 0 6px, #1a1f29 6px 12px);
+         box-shadow: inset 0 0 0 1px rgba(255,255,255,.09); }
+  @keyframes pop { 0% { transform: scale(.4); } 55% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+  /* truth (x-ray) layer */
+  .truth { position: absolute; inset: 0; display: grid; place-items: center;
+           font-size: clamp(13px, 2.6vw, 21px); opacity: 0; transform: scale(.55);
+           transition: opacity .4s ease, transform .4s ease; pointer-events: none; }
+  body.xray .truth { opacity: 1; transform: scale(1); }
+  body.xray .cell { background: #0d1118 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04) !important; }
+  body.xray .cell .glyph { opacity: 0 !important; }
+  body.xray .cell.t-wall { background: repeating-linear-gradient(45deg, #2a2f3a 0 6px, #20242e 6px 12px) !important; }
+  .exit-mark { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+               font-size: clamp(11px, 2.1vw, 17px); opacity: .95;
+               filter: drop-shadow(0 0 6px rgba(242,193,78,.45)); }
+  .cell.is-exit { box-shadow: inset 0 0 0 1px rgba(242,193,78,.4); }
+
+  /* agent orb */
+  #agent {
+    position: absolute; display: grid; place-items: center;
+    font-size: clamp(15px, 3vw, 24px); z-index: 5; pointer-events: none;
+    filter: drop-shadow(0 0 9px rgba(65,211,220,.65));
+    transition: transform .3s cubic-bezier(.25,.8,.3,1);
+  }
+  #agent .ring { position: absolute; inset: 12%; border-radius: 50%;
+                 border: 1.5px solid rgba(65,211,220,.55); animation: breathe 2.2s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform: scale(.92); opacity: .55; } 50% { transform: scale(1.08); opacity: 1; } }
+
+  /* board overlays */
+  .stamp {
+    position: absolute; inset: 0; display: grid; place-items: center; z-index: 8; pointer-events: none;
+    opacity: 0; transition: opacity .4s ease;
+  }
+  .stamp span {
+    font-family: var(--mono); font-size: clamp(26px, 5vw, 44px); font-weight: 800; letter-spacing: .18em;
+    padding: 8px 26px; border: 3px solid currentColor; border-radius: 10px;
+    transform: rotate(-7deg) scale(1.4); transition: transform .35s cubic-bezier(.2,1.6,.4,1);
+    background: rgba(11,14,21,.72); backdrop-filter: blur(2px);
+  }
+  .stamp.show { opacity: 1; }
+  .stamp.show span { transform: rotate(-7deg) scale(1); }
+  .stamp.win span { color: var(--good); text-shadow: 0 0 22px rgba(58,201,106,.5); }
+  .stamp.loss span { color: var(--bad); text-shadow: 0 0 22px rgba(224,82,82,.5); }
+  .flash { position: absolute; inset: 0; border-radius: 12px; pointer-events: none; opacity: 0; z-index: 6; }
+  .flash.hit { animation: hitflash .55s ease; }
+  @keyframes hitflash { 0% { opacity: 0; } 25% { opacity: 1; box-shadow: inset 0 0 60px 18px rgba(224,82,82,.55); } 100% { opacity: 0; } }
+  .spark { position: absolute; z-index: 7; pointer-events: none; font-size: 13px;
+           animation: fly 1s ease-out forwards; }
+  @keyframes fly { to { transform: translate(var(--dx), var(--dy)) rotate(240deg); opacity: 0; } }
+
+  /* instruments */
+  .instruments { display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+                 margin-top: 12px; font-family: var(--mono); font-size: 12.5px; }
+  .meter { flex: 1 1 150px; min-width: 140px; }
+  .meter .lbl { color: var(--ink-3); font-size: 10.5px; letter-spacing: .14em; margin-bottom: 4px; }
+  .bar { height: 8px; border-radius: 99px; background: #0d1119; border: 1px solid var(--ring); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 100%;
+           background: linear-gradient(90deg, #2fd07f, #7ddc57); border-radius: 99px;
+           transition: width .3s ease, background .3s ease; }
+  .bar.mid i  { background: linear-gradient(90deg, #dfa32b, #e8c34e); }
+  .bar.low i  { background: linear-gradient(90deg, #e05252, #e67); }
+  .stat b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat { color: var(--ink-3); letter-spacing: .05em; }
+  .badges { display: flex; gap: 8px; margin-left: auto; }
+  .badge { border: 1px solid var(--ring); border-radius: 7px; padding: 3px 9px;
+           color: var(--ink-3); font-size: 11px; letter-spacing: .1em; transition: all .25s ease; }
+  .badge.on.breeze { color: #ffd479; border-color: rgba(223,163,43,.6); background: rgba(223,163,43,.12);
+                     box-shadow: 0 0 12px rgba(223,163,43,.25); }
+  .badge.on.stench { color: #ff9c9c; border-color: rgba(224,82,82,.6); background: rgba(224,82,82,.12);
+                     box-shadow: 0 0 12px rgba(224,82,82,.25); }
+  .status-chip { border-radius: 7px; padding: 3px 10px; font-size: 11px; letter-spacing: .12em;
+                 border: 1px solid var(--ring); color: var(--cyan); background: rgba(65,211,220,.07); }
+  .status-chip.won  { color: var(--good); border-color: rgba(58,201,106,.5); background: rgba(58,201,106,.1); }
+  .status-chip.dead { color: var(--bad); border-color: rgba(224,82,82,.5); background: rgba(224,82,82,.1); }
+
+  /* ---------- mind log ---------- */
+  .log-card { display: flex; flex-direction: column; min-height: 420px; max-height: 660px; }
+  .log-head { display: flex; justify-content: space-between; align-items: center;
+              padding: 12px 16px; border-bottom: 1px solid var(--ring);
+              font-family: var(--mono); font-size: 12px; letter-spacing: .16em; color: var(--ink-3); }
+  .log-head b { color: var(--cyan); letter-spacing: .05em; }
+  .log { flex: 1; overflow-y: auto; padding: 10px 14px 14px; font-family: var(--mono);
+         font-size: 12px; scroll-behavior: smooth; }
+  .log::-webkit-scrollbar { width: 8px; } .log::-webkit-scrollbar-thumb { background: #232a38; border-radius: 8px; }
+  .entry { border-left: 2px solid transparent; padding: 6px 10px; margin-bottom: 6px; border-radius: 0 8px 8px 0; opacity: .58; }
+  .entry.current { border-left-color: var(--cyan); background: rgba(65,211,220,.05); opacity: 1; }
+  .entry-head { color: var(--ink-3); font-size: 10.5px; letter-spacing: .14em; margin-bottom: 3px; }
+  .entry-head .act { color: var(--cyan); font-weight: 700; }
+  .ln { white-space: pre-wrap; word-break: break-word; color: var(--ink-2); padding: 1px 0; }
+  .ln.safe    { color: #58c9a0; }
+  .ln.pit     { color: #e3b158; }
+  .ln.wumpus  { color: #ef8f8f; }
+  .ln.confirm { font-weight: 700; }
+  .ln.policy  { color: #6fd7de; }
+  .ln.danger  { color: #ff8383; font-weight: 700; }
+  .ln.muted   { color: var(--ink-3); }
+  .legend { border-top: 1px solid var(--ring); padding: 10px 16px 13px;
+            display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: var(--ink-3); }
+  .legend .k { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+
+  /* ---------- control deck ---------- */
+  .deck {
+    position: sticky; bottom: 10px; margin-top: 18px; z-index: 20;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: rgba(15,19,29,.88); backdrop-filter: blur(10px);
+    border: 1px solid var(--ring); border-radius: 14px; padding: 10px 14px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.45);
+  }
+  .btn {
+    font-family: var(--mono); font-size: 13px; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--ring); border-radius: 9px;
+    min-width: 38px; height: 34px; padding: 0 10px; cursor: pointer; transition: all .15s ease;
+  }
+  .btn:hover { border-color: rgba(65,211,220,.5); color: var(--cyan); }
+  .btn.primary { background: rgba(65,211,220,.14); border-color: rgba(65,211,220,.55); color: var(--cyan); font-weight: 700; }
+  .btn.toggled { background: rgba(242,193,78,.15); border-color: rgba(242,193,78,.6); color: var(--gold); }
+  .scrub { flex: 1 1 200px; display: flex; align-items: center; gap: 10px; min-width: 180px; }
+  .scrub input[type=range] { flex: 1; accent-color: var(--cyan); }
+  .frame-lbl { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); min-width: 74px; text-align: right;
+               font-variant-numeric: tabular-nums; }
+  select {
+    font-family: var(--mono); font-size: 12px; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--ring); border-radius: 8px; height: 34px; padding: 0 8px;
+  }
+  .hints { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); display: flex; gap: 10px; }
+  @media (max-width: 700px) { .hints { display: none; } }
+
+  footer.credits { margin-top: 14px; text-align: center; color: var(--ink-3); font-size: 11.5px; font-family: var(--mono); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot">◆</span> WUMPUS WORLD <span class="sub">/ inside the mind of an AI</span></div>
+  <div class="hdr-meta">
+    <span class="chip" id="agentChip">AGENT · RULE-BASED</span>
+    <a href="https://github.com/mahan-vzmz/Wumpus-World" target="_blank" rel="noopener">source ↗</a>
+  </div>
+</header>
+
+<p class="lede">
+  The agent has <em>never seen this map</em>. Pits and Wumpuses hide in the dark — all it feels is a
+  breeze or a stench from a neighbouring cell. Every coloured square below is an <em>inference</em>,
+  not vision. Hit <kbd>X</kbd> for X-ray to compare its beliefs against the hidden truth.
+</p>
+
+<nav class="tabs" id="tabs"></nav>
+
+<main class="stage">
+  <section class="board-card">
+    <div class="board-head">
+      <div class="board-title" id="epTitle"></div>
+      <div class="board-tag" id="epTag"></div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="flash" id="flash"></div>
+    <div class="stamp" id="stamp"><span id="stampText"></span></div>
+    <div class="instruments">
+      <div class="meter">
+        <div class="lbl">HEALTH</div>
+        <div class="bar" id="healthBar"><i id="healthFill"></i></div>
+      </div>
+      <span class="stat">STEP <b id="stSteps">0</b></span>
+      <span class="stat">GOLD <b id="stGold">0</b></span>
+      <span class="stat">SCORE <b id="stScore">0</b></span>
+      <div class="badges">
+        <span class="badge breeze" id="bBreeze">BREEZE</span>
+        <span class="badge stench" id="bStench">STENCH</span>
+        <span class="status-chip" id="statusChip">EXPLORING</span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="log-card">
+    <div class="log-head"><span><b>MIND LOG</b> · live reasoning</span><span id="logStep"></span></div>
+    <div class="log" id="log"></div>
+    <div class="legend">
+      <span class="k"><span class="sw" style="background:#0e1219;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)"></span>unknown</span>
+      <span class="k"><span class="sw" style="background:rgba(34,176,126,.35)"></span>inferred safe</span>
+      <span class="k"><span class="sw" style="background:#232d3c"></span>visited</span>
+      <span class="k"><span class="sw" style="background:rgba(223,163,43,.5)"></span>pit?</span>
+      <span class="k"><span class="sw" style="background:rgba(230,102,102,.5)"></span>wumpus?</span>
+      <span class="k"><span class="sw" style="background:rgba(223,163,43,.95)"></span>confirmed</span>
+      <span class="k">🕳 pit</span><span class="k">👹 wumpus</span><span class="k">🪙 gold</span><span class="k">🚪 exit</span>
+    </div>
+  </aside>
+</main>
+
+<footer class="deck">
+  <button class="btn" id="btnRestart" title="Restart (R)">⟲</button>
+  <button class="btn" id="btnPrev" title="Step back (←)">◀</button>
+  <button class="btn primary" id="btnPlay" title="Play / pause (Space)">▶</button>
+  <button class="btn" id="btnNext" title="Step forward (→)">▶▶</button>
+  <div class="scrub">
+    <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Frame">
+    <span class="frame-lbl" id="frameLbl">0 / 0</span>
+  </div>
+  <select id="speed" title="Playback speed">
+    <option value="1.6">0.5×</option>
+    <option value="0.8" selected>1×</option>
+    <option value="0.4">2×</option>
+    <option value="0.2">4×</option>
+  </select>
+  <button class="btn" id="btnXray" title="X-ray: reveal hidden truth (X)">👁 X-RAY</button>
+  <span class="hints"><span><kbd>Space</kbd> play</span><span><kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>X</kbd> x-ray</span></span>
+</footer>
+
+<footer class="credits">
+  built from real episode traces · deterministic seed · no libraries, one file ·
+  <span id="credEp"></span>
+</footer>
+
+<script>
+"use strict";
+const DATA = {"generator":"python -m wumpus visualize","agent":"rules","seed":42,"episodes":[{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["****D***","********","********","*****D**","********","********","********","*****G**"],"exit":[7,7],"config":{"initial_health":50,"gold_value":10,"pit_score_delta":-15,"max_steps":50},"result":{"status":"WON","won":true,"steps":14,"score":46},"frames":[{"pos":[0,0],"health":50,"steps":0,"gold":0,"score":50,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","NO_BREEZE at (1,1)","NO_STENCH at (1,1)","SET (2,1) = SAFE [no hazard suspicion]","SET (1,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,1)","  STEP -> (2,1) via DOWN"]},{"pos":[1,0],"health":49,"steps":1,"gold":0,"score":49,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (2,0) = BLOCKED [out of grid]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (3,1) = SAFE [no hazard suspicion]","SET (2,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,1)","  STEP -> (3,1) via DOWN"]},{"pos":[2,0],"health":48,"steps":2,"gold":0,"score":48,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,0) = BLOCKED [out of grid]","NO_BREEZE at (3,1)","NO_STENCH at (3,1)","SET (4,1) = SAFE [no hazard suspicion]","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,1)","  STEP -> (4,1) via DOWN"]},{"pos":[3,0],"health":47,"steps":3,"gold":0,"score":47,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,0) = BLOCKED [out of grid]","NO_BREEZE at (4,1)","NO_STENCH at (4,1)","SET (5,1) = SAFE [no hazard suspicion]","SET (4,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,1)","  STEP -> (5,1) via DOWN"]},{"pos":[4,0],"health":46,"steps":4,"gold":0,"score":46,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,0) = BLOCKED [out of grid]","NO_BREEZE at (5,1)","NO_STENCH at (5,1)","SET (6,1) = SAFE [no hazard suspicion]","SET (5,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,1)","  STEP -> (6,1) via DOWN"]},{"pos":[5,0],"health":45,"steps":5,"gold":0,"score":45,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuu","trace":["SET (6,0) = BLOCKED [out of grid]","NO_BREEZE at (6,1)","NO_STENCH at (6,1)","SET (7,1) = SAFE [no hazard suspicion]","SET (6,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,1)","  STEP -> (7,1) via DOWN"]},{"pos":[6,0],"health":44,"steps":6,"gold":0,"score":44,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuu","trace":["SET (7,0) = BLOCKED [out of grid]","NO_BREEZE at (7,1)","NO_STENCH at (7,1)","SET (8,1) = SAFE [no hazard suspicion]","SET (7,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,1)","  STEP -> (8,1) via DOWN"]},{"pos":[7,0],"health":43,"steps":7,"gold":0,"score":43,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuu","trace":["SET (9,1) = BLOCKED [out of grid]","SET (8,0) = BLOCKED [out of grid]","NO_BREEZE at (8,1)","NO_STENCH at (8,1)","SET (8,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,2)","  STEP -> (8,2) via RIGHT"]},{"pos":[7,1],"health":42,"steps":8,"gold":0,"score":42,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvvsuuuuu","trace":["SET (9,2) = BLOCKED [out of grid]","NO_BREEZE at (8,2)","SET (7,2) = UNKNOWN [not a pit: no breeze from (8,2)]","NO_STENCH at (8,2)","SET (7,2) = SAFE [no hazard suspicion]","SET (8,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,3)","  STEP -> (8,3) via RIGHT"]},{"pos":[7,2],"health":41,"steps":9,"gold":0,"score":41,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvssuuuuuvvvsuuuu","trace":["SET (9,3) = BLOCKED [out of grid]","NO_BREEZE at (8,3)","NO_STENCH at (8,3)","SET (7,3) = SAFE [no hazard suspicion]","SET (8,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,4)","  STEP -> (8,4) via RIGHT"]},{"pos":[7,3],"health":40,"steps":10,"gold":0,"score":40,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsssuuuuvvvvsuuu","trace":["SET (9,4) = BLOCKED [out of grid]","NO_BREEZE at (8,4)","NO_STENCH at (8,4)","SET (7,4) = SAFE [no hazard suspicion]","SET (8,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,5)","  STEP -> (8,5) via RIGHT"]},{"pos":[7,4],"health":39,"steps":11,"gold":0,"score":39,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvssssuuuvvvvvsuu","trace":["SET (9,5) = BLOCKED [out of grid]","NO_BREEZE at (8,5)","NO_STENCH at (8,5)","SET (7,5) = SAFE [no hazard suspicion]","SET (8,6) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,6)","  STEP -> (8,6) via RIGHT"]},{"pos":[7,5],"health":38,"steps":12,"gold":1,"score":48,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsssssuuvvvvvvsu","trace":["SET (9,6) = BLOCKED [out of grid]","NO_BREEZE at (8,6)","NO_STENCH at (8,6)","SET (7,6) = SAFE [no hazard suspicion]","SET (8,7) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,7)","  STEP -> (8,7) via RIGHT"]},{"pos":[7,6],"health":37,"steps":13,"gold":1,"score":47,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvssssssuvvvvvvvs","trace":["SET (9,7) = BLOCKED [out of grid]","NO_BREEZE at (8,7)","NO_STENCH at (8,7)","SET (7,7) = SAFE [no hazard suspicion]","SET (8,8) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,8)","  STEP -> (8,8) via RIGHT"]},{"pos":[7,7],"health":36,"steps":14,"gold":1,"score":46,"status":"WON","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvssssssuvvvvvvvs","trace":[]}],"map_name":"01_easy_map_01.txt","id":"first-steps","title":"First Steps","stars":1,"tagline":"An open field. Watch the fog give way to inference.","fatal":false},{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["****PD**","********","*****P**","**D*****","****D***","**P*****","********","***PG***"],"exit":[7,7],"config":{"initial_health":40,"gold_value":10,"pit_score_delta":-15,"max_steps":40},"result":{"status":"WON","won":true,"steps":36,"score":4},"frames":[{"pos":[0,0],"health":40,"steps":0,"gold":0,"score":40,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","NO_BREEZE at (1,1)","NO_STENCH at (1,1)","SET (2,1) = SAFE [no hazard suspicion]","SET (1,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,1)","  STEP -> (2,1) via DOWN"]},{"pos":[1,0],"health":39,"steps":1,"gold":0,"score":39,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (2,0) = BLOCKED [out of grid]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (3,1) = SAFE [no hazard suspicion]","SET (2,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,1)","  STEP -> (3,1) via DOWN"]},{"pos":[2,0],"health":38,"steps":2,"gold":0,"score":38,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,0) = BLOCKED [out of grid]","NO_BREEZE at (3,1)","NO_STENCH at (3,1)","SET (4,1) = SAFE [no hazard suspicion]","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,1)","  STEP -> (4,1) via DOWN"]},{"pos":[3,0],"health":37,"steps":3,"gold":0,"score":37,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,0) = BLOCKED [out of grid]","NO_BREEZE at (4,1)","NO_STENCH at (4,1)","SET (5,1) = SAFE [no hazard suspicion]","SET (4,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,1)","  STEP -> (5,1) via DOWN"]},{"pos":[4,0],"health":36,"steps":4,"gold":0,"score":36,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,0) = BLOCKED [out of grid]","NO_BREEZE at (5,1)","NO_STENCH at (5,1)","SET (6,1) = SAFE [no hazard suspicion]","SET (5,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,1)","  STEP -> (6,1) via DOWN"]},{"pos":[5,0],"health":35,"steps":5,"gold":0,"score":35,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuu","trace":["SET (6,0) = BLOCKED [out of grid]","NO_BREEZE at (6,1)","NO_STENCH at (6,1)","SET (7,1) = SAFE [no hazard suspicion]","SET (6,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,1)","  STEP -> (7,1) via DOWN"]},{"pos":[6,0],"health":34,"steps":6,"gold":0,"score":34,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuu","trace":["SET (7,0) = BLOCKED [out of grid]","NO_BREEZE at (7,1)","NO_STENCH at (7,1)","SET (8,1) = SAFE [no hazard suspicion]","SET (7,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,1)","  STEP -> (8,1) via DOWN"]},{"pos":[7,0],"health":33,"steps":7,"gold":0,"score":33,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuu","trace":["SET (9,1) = BLOCKED [out of grid]","SET (8,0) = BLOCKED [out of grid]","NO_BREEZE at (8,1)","NO_STENCH at (8,1)","SET (8,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,2)","  STEP -> (8,2) via RIGHT"]},{"pos":[7,1],"health":32,"steps":8,"gold":0,"score":32,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvvsuuuuu","trace":["SET (9,2) = BLOCKED [out of grid]","NO_BREEZE at (8,2)","SET (7,2) = UNKNOWN [not a pit: no breeze from (8,2)]","NO_STENCH at (8,2)","SET (7,2) = SAFE [no hazard suspicion]","SET (8,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,3)","  STEP -> (8,3) via RIGHT"]},{"pos":[7,2],"health":31,"steps":9,"gold":0,"score":31,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvspuuuuuvvvpuuuu","trace":["SET (9,3) = BLOCKED [out of grid]","BREEZE at (8,3)","SET (7,3) = POSSIBLE_PIT [breeze at (8,3)]","SET (8,4) = POSSIBLE_PIT [breeze at (8,3)]","NO_STENCH at (8,3)","P2 EXPLORE safe frontier (7,2)","  STEP -> (8,2) via LEFT"]},{"pos":[7,1],"health":30,"steps":10,"gold":0,"score":30,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvspuuuuuvvvpuuuu","trace":["NO_BREEZE at (8,2)","SET (7,2) = UNKNOWN [not a pit: no breeze from (8,2)]","NO_STENCH at (8,2)","SET (7,2) = SAFE [no hazard suspicion]","FOLLOW cached path -> (7,2)"]},{"pos":[6,1],"health":29,"steps":11,"gold":0,"score":29,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvvsuuuuuvvvPuuuu","trace":["NO_BREEZE at (7,2)","SET (6,2) = UNKNOWN [not a pit: no breeze from (7,2)]","SET (7,3) = UNKNOWN [not a pit: no breeze from (7,2)]","NO_STENCH at (7,2)","SET (6,2) = SAFE [no hazard suspicion]","SET (7,3) = SAFE [no hazard suspicion]","SET (8,4) = CONFIRMED_PIT [only candidate for breeze at (8,3)]","P2 EXPLORE safe frontier (7,3)","  STEP -> (7,3) via RIGHT"]},{"pos":[6,2],"health":28,"steps":12,"gold":0,"score":28,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvspuuuuuvvvpuuuuvvvPuuuu","trace":["BREEZE at (7,3)","SET (6,3) = POSSIBLE_PIT [breeze at (7,3)]","SET (7,4) = POSSIBLE_PIT [breeze at (7,3)]","NO_STENCH at (7,3)","P2 EXPLORE safe frontier (6,2)","  STEP -> (7,2) via LEFT"]},{"pos":[6,1],"health":27,"steps":13,"gold":0,"score":27,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvspuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (7,2)","SET (6,2) = UNKNOWN [not a pit: no breeze from (7,2)]","NO_STENCH at (7,2)","SET (6,2) = SAFE [no hazard suspicion]","FOLLOW cached path -> (6,2)"]},{"pos":[5,1],"health":26,"steps":14,"gold":0,"score":26,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["BREEZE at (6,2)","NO_STENCH at (6,2)","SET (5,2) = UNKNOWN [not a Wumpus: no stench from (6,2)]","SET (5,2) = SAFE [no hazard suspicion]","SET (6,3) = CONFIRMED_PIT [only candidate for breeze at (6,2)]","P2 EXPLORE safe frontier (5,2)","  STEP -> (5,2) via UP"]},{"pos":[4,1],"health":25,"steps":15,"gold":0,"score":25,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvvsuuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (5,2)","SET (4,2) = UNKNOWN [not a pit: no breeze from (5,2)]","NO_STENCH at (5,2)","SET (4,2) = SAFE [no hazard suspicion]","SET (5,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,3)","  STEP -> (5,3) via RIGHT"]},{"pos":[4,2],"health":24,"steps":16,"gold":0,"score":24,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsxuuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["SET (4,3) = BLOCKED [wall detected from (5,3)]","BREEZE at (5,3)","SET (5,4) = POSSIBLE_PIT [breeze at (5,3)]","NO_STENCH at (5,3)","P2 EXPLORE safe frontier (4,2)","  STEP -> (5,2) via LEFT"]},{"pos":[4,1],"health":23,"steps":17,"gold":0,"score":23,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsxuuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (5,2)","SET (4,2) = UNKNOWN [not a pit: no breeze from (5,2)]","NO_STENCH at (5,2)","SET (4,2) = SAFE [no hazard suspicion]","FOLLOW cached path -> (4,2)"]},{"pos":[3,1],"health":22,"steps":18,"gold":0,"score":22,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvvxuuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (4,2)","SET (3,2) = UNKNOWN [not a pit: no breeze from (4,2)]","NO_STENCH at (4,2)","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,2)","  STEP -> (3,2) via UP"]},{"pos":[2,1],"health":21,"steps":19,"gold":0,"score":21,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvvsuuuuuvvxuuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (3,2)","SET (2,2) = UNKNOWN [not a pit: no breeze from (3,2)]","NO_STENCH at (3,2)","SET (2,2) = SAFE [no hazard suspicion]","SET (3,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,3)","  STEP -> (3,3) via RIGHT"]},{"pos":[2,2],"health":20,"steps":20,"gold":0,"score":20,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvssuuuuuvvvsuuuuvvxuuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (3,3)","NO_STENCH at (3,3)","SET (2,3) = SAFE [no hazard suspicion]","SET (3,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,4)","  STEP -> (3,4) via RIGHT"]},{"pos":[2,3],"health":19,"steps":21,"gold":0,"score":19,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxsuuuuvvvpuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (3,4)","NO_STENCH at (3,4)","SET (2,4) = SAFE [no hazard suspicion]","SET (4,4) = SAFE [no hazard suspicion]","SET (3,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,4)","  STEP -> (4,4) via DOWN"]},{"pos":[3,3],"health":18,"steps":22,"gold":0,"score":18,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvsuuuvvvsuuuuvvPuuuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (4,4)","SET (5,4) = UNKNOWN [not a pit: no breeze from (4,4)]","NO_STENCH at (4,4)","SET (5,4) = SAFE [no hazard suspicion]","SET (4,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,4)","  STEP -> (5,4) via DOWN"]},{"pos":[4,3],"health":17,"steps":23,"gold":0,"score":17,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvsuuuvvvvxuuuvvPsuuuuvvvpuuuuvvvPuuuu","trace":["SET (5,5) = BLOCKED [wall detected from (5,4)]","NO_BREEZE at (5,4)","NO_STENCH at (5,4)","SET (6,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,4)","  STEP -> (6,4) via DOWN"]},{"pos":[5,3],"health":16,"steps":24,"gold":0,"score":16,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvsuuuvvvvxuuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["BREEZE at (6,4)","SET (6,5) = POSSIBLE_PIT [breeze at (6,4)]","NO_STENCH at (6,4)","P2 EXPLORE safe frontier (4,5)","  STEP -> (5,4) via UP"]},{"pos":[4,3],"health":15,"steps":25,"gold":0,"score":15,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvsuuuvvvvxuuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (5,4)","NO_STENCH at (5,4)","FOLLOW cached path -> (4,4)"]},{"pos":[3,3],"health":14,"steps":26,"gold":0,"score":14,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvsuuuvvvvxuuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (4,4)","SET (4,5) = UNKNOWN [not a pit: no breeze from (4,4)]","NO_STENCH at (4,4)","SET (4,5) = SAFE [no hazard suspicion]","FOLLOW cached path -> (4,5)"]},{"pos":[3,4],"health":13,"steps":27,"gold":0,"score":13,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsssuuuuvvvvsuuuvvxvvsuuvvvvxuuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (4,5)","SET (3,5) = UNKNOWN [not a pit: no breeze from (4,5)]","NO_STENCH at (4,5)","SET (3,5) = SAFE [no hazard suspicion]","SET (4,6) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,6)","  STEP -> (4,6) via RIGHT"]},{"pos":[3,5],"health":12,"steps":28,"gold":0,"score":12,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxpuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["BREEZE at (4,6)","SET (3,6) = POSSIBLE_PIT [breeze at (4,6)]","SET (5,6) = POSSIBLE_PIT [breeze at (4,6)]","SET (4,7) = POSSIBLE_PIT [breeze at (4,6)]","NO_STENCH at (4,6)","P2 EXPLORE safe frontier (3,5)","  STEP -> (4,5) via LEFT"]},{"pos":[3,4],"health":11,"steps":29,"gold":0,"score":11,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxpuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["NO_BREEZE at (4,5)","SET (3,5) = UNKNOWN [not a pit: no breeze from (4,5)]","NO_STENCH at (4,5)","SET (3,5) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=11, min_exit_dist=7","  STEP -> (4,6) via RIGHT"]},{"pos":[3,5],"health":10,"steps":30,"gold":0,"score":10,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxpuuvvPvpuuuvvvpuuuuvvvPuuuu","trace":["BREEZE at (4,6)","NO_STENCH at (4,6)","P1 EMERGENCY RETREAT: health=10, min_exit_dist=6","  STEP -> (5,6) via DOWN"]},{"pos":[4,5],"health":9,"steps":31,"gold":0,"score":9,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvpsuuvvvpuuuuvvvPuuuu","trace":["SET (5,6) = SAFE [visited (5,6)]","NO_BREEZE at (5,6)","NO_STENCH at (5,6)","SET (6,6) = SAFE [no hazard suspicion]","SET (5,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=9, min_exit_dist=5","  STEP -> (6,6) via DOWN"]},{"pos":[5,5],"health":8,"steps":32,"gold":0,"score":8,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvsvsuvvvpusuuvvvPuuuu","trace":["NO_BREEZE at (6,6)","SET (6,5) = UNKNOWN [not a pit: no breeze from (6,6)]","NO_STENCH at (6,6)","SET (7,6) = SAFE [no hazard suspicion]","SET (6,5) = SAFE [no hazard suspicion]","SET (6,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=8, min_exit_dist=4","  STEP -> (7,6) via DOWN"]},{"pos":[6,5],"health":7,"steps":33,"gold":0,"score":7,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvsvsuvvvpsvsuvvvPusuu","trace":["NO_BREEZE at (7,6)","NO_STENCH at (7,6)","SET (8,6) = SAFE [no hazard suspicion]","SET (7,5) = SAFE [no hazard suspicion]","SET (7,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=7, min_exit_dist=3","  STEP -> (8,6) via DOWN"]},{"pos":[7,5],"health":6,"steps":34,"gold":0,"score":6,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvsvsuvvvpsvsuvvvPsvsu","trace":["SET (9,6) = BLOCKED [out of grid]","NO_BREEZE at (8,6)","NO_STENCH at (8,6)","SET (8,5) = SAFE [no hazard suspicion]","SET (8,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=6, min_exit_dist=2","  STEP -> (8,7) via RIGHT"]},{"pos":[7,6],"health":5,"steps":35,"gold":0,"score":5,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvsvsuvvvpsvsuvvvPsvvs","trace":["SET (9,7) = BLOCKED [out of grid]","NO_BREEZE at (8,7)","SET (7,7) = UNKNOWN [not a pit: no breeze from (8,7)]","NO_STENCH at (8,7)","SET (7,7) = SAFE [no hazard suspicion]","SET (8,8) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=5, min_exit_dist=1","  STEP -> (8,8) via RIGHT"]},{"pos":[7,7],"health":4,"steps":36,"gold":0,"score":4,"status":"WON","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vsuuuuuuvsssuuuuvvvvspuuvvxvvvpuvvvvxvsuvvPvsvsuvvvpsvsuvvvPsvvs","trace":[]}],"map_name":"02_pit_heavy_map_03.txt","id":"pit-field","title":"Pit Field","stars":2,"tagline":"Four hidden pits. One breeze at a time.","fatal":false},{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["****G***","P*W*****","********","*D******","***D****","********","********","DW******"],"exit":[7,7],"config":{"initial_health":40,"gold_value":10,"pit_score_delta":-15,"max_steps":40},"result":{"status":"WON","won":true,"steps":18,"score":-13},"frames":[{"pos":[0,0],"health":40,"steps":0,"gold":0,"score":40,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuupuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","BREEZE at (1,1)","SET (2,1) = POSSIBLE_PIT [breeze at (1,1)]","SET (1,2) = POSSIBLE_PIT [breeze at (1,1)]","NO_STENCH at (1,1)","P4 RISKY MOVE to (2,1) [risk=11]"]},{"pos":[1,0],"health":19,"steps":1,"gold":0,"score":4,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["KNOWN_PIT entered at (2,1)","SET (2,1) = SAFE [visited (2,1)]","SET (2,0) = BLOCKED [out of grid]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (3,1) = SAFE [no hazard suspicion]","SET (2,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,1)","  STEP -> (3,1) via DOWN"]},{"pos":[2,0],"health":18,"steps":2,"gold":0,"score":3,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuupuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,0) = BLOCKED [out of grid]","BREEZE at (3,1)","SET (4,1) = POSSIBLE_PIT [breeze at (3,1)]","SET (3,2) = POSSIBLE_PIT [breeze at (3,1)]","NO_STENCH at (3,1)","P4 RISKY MOVE to (2,2) [risk=0]","P4 RISKY MOVE to (4,1) [risk=11]"]},{"pos":[3,0],"health":17,"steps":3,"gold":0,"score":2,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,1) = SAFE [visited (4,1)]","SET (4,0) = BLOCKED [out of grid]","SET (4,2) = BLOCKED [wall detected from (4,1)]","NO_BREEZE at (4,1)","NO_STENCH at (4,1)","SET (5,1) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,1)","  STEP -> (5,1) via DOWN"]},{"pos":[4,0],"health":16,"steps":4,"gold":0,"score":1,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,0) = BLOCKED [out of grid]","NO_BREEZE at (5,1)","NO_STENCH at (5,1)","SET (6,1) = SAFE [no hazard suspicion]","SET (5,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,1)","  STEP -> (6,1) via DOWN"]},{"pos":[5,0],"health":15,"steps":5,"gold":0,"score":0,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuu","trace":["SET (6,0) = BLOCKED [out of grid]","NO_BREEZE at (6,1)","NO_STENCH at (6,1)","SET (7,1) = SAFE [no hazard suspicion]","SET (6,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,1)","  STEP -> (7,1) via DOWN"]},{"pos":[6,0],"health":14,"steps":6,"gold":0,"score":-1,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuxuuuuuuu","trace":["SET (8,1) = BLOCKED [wall detected from (7,1)]","SET (7,0) = BLOCKED [out of grid]","NO_BREEZE at (7,1)","NO_STENCH at (7,1)","SET (7,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,2)","  STEP -> (7,2) via RIGHT"]},{"pos":[6,1],"health":13,"steps":7,"gold":0,"score":-2,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"UP","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvsuuuuuuvsuuuuuuvvwuuuuuxwuuuuuu","trace":["NO_BREEZE at (7,2)","SET (6,2) = UNKNOWN [not a pit: no breeze from (7,2)]","STENCH at (7,2)","SET (8,2) = POSSIBLE_WUMPUS [stench at (7,2)]","SET (7,3) = POSSIBLE_WUMPUS [stench at (7,2)]","SET (6,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,2)","  STEP -> (6,2) via UP"]},{"pos":[5,1],"health":12,"steps":8,"gold":0,"score":-3,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvsuuuuuuvvsuuuuuvvwuuuuuxwuuuuuu","trace":["NO_BREEZE at (6,2)","SET (5,2) = UNKNOWN [not a pit: no breeze from (6,2)]","NO_STENCH at (6,2)","SET (5,2) = SAFE [no hazard suspicion]","SET (6,3) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=12, min_exit_dist=8","  STEP -> (6,3) via RIGHT"]},{"pos":[5,2],"health":11,"steps":9,"gold":0,"score":-4,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvsuuuuuxWuuuuuu","trace":["NO_BREEZE at (6,3)","NO_STENCH at (6,3)","SET (7,3) = UNKNOWN [not a Wumpus: no stench from (6,3)]","SET (5,3) = SAFE [no hazard suspicion]","SET (7,3) = SAFE [no hazard suspicion]","SET (6,4) = SAFE [no hazard suspicion]","SET (8,2) = CONFIRMED_WUMPUS [only candidate for stench at (7,2)]","P1 EMERGENCY RETREAT: health=11, min_exit_dist=7","  STEP -> (7,3) via DOWN"]},{"pos":[6,2],"health":10,"steps":10,"gold":0,"score":-5,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvsuuuuxWsuuuuu","trace":["NO_BREEZE at (7,3)","NO_STENCH at (7,3)","SET (8,3) = SAFE [no hazard suspicion]","SET (7,4) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=10, min_exit_dist=6","  STEP -> (8,3) via DOWN"]},{"pos":[7,2],"health":9,"steps":11,"gold":0,"score":-6,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"UP","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvsuuuuxWvwuuuu","trace":["SET (9,3) = BLOCKED [out of grid]","NO_BREEZE at (8,3)","STENCH at (8,3)","SET (8,4) = POSSIBLE_WUMPUS [stench at (8,3)]","P1 EMERGENCY RETREAT: health=9, min_exit_dist=5","  STEP -> (7,3) via UP"]},{"pos":[6,2],"health":8,"steps":12,"gold":0,"score":-7,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvsuuuuxWvwuuuu","trace":["NO_BREEZE at (7,3)","SET (7,4) = UNKNOWN [not a pit: no breeze from (7,3)]","NO_STENCH at (7,3)","SET (7,4) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=8, min_exit_dist=6","  STEP -> (7,4) via RIGHT"]},{"pos":[6,3],"health":7,"steps":13,"gold":0,"score":-8,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvsuuuxWvsuuuu","trace":["NO_BREEZE at (7,4)","SET (6,4) = UNKNOWN [not a pit: no breeze from (7,4)]","NO_STENCH at (7,4)","SET (8,4) = UNKNOWN [not a Wumpus: no stench from (7,4)]","SET (6,4) = SAFE [no hazard suspicion]","SET (8,4) = SAFE [no hazard suspicion]","SET (7,5) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=7, min_exit_dist=5","  STEP -> (8,4) via DOWN"]},{"pos":[7,3],"health":6,"steps":14,"gold":0,"score":-9,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvsuuuxWvvsuuu","trace":["SET (9,4) = BLOCKED [out of grid]","NO_BREEZE at (8,4)","NO_STENCH at (8,4)","SET (8,5) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=6, min_exit_dist=4","  STEP -> (8,5) via RIGHT"]},{"pos":[7,4],"health":5,"steps":15,"gold":0,"score":-10,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvsuuuxWvvvsuu","trace":["SET (9,5) = BLOCKED [out of grid]","NO_BREEZE at (8,5)","SET (7,5) = UNKNOWN [not a pit: no breeze from (8,5)]","NO_STENCH at (8,5)","SET (7,5) = SAFE [no hazard suspicion]","SET (8,6) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=5, min_exit_dist=3","  STEP -> (8,6) via RIGHT"]},{"pos":[7,5],"health":4,"steps":16,"gold":0,"score":-11,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvssuuxWvvvvsu","trace":["SET (9,6) = BLOCKED [out of grid]","NO_BREEZE at (8,6)","NO_STENCH at (8,6)","SET (7,6) = SAFE [no hazard suspicion]","SET (8,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=4, min_exit_dist=2","  STEP -> (8,7) via RIGHT"]},{"pos":[7,6],"health":3,"steps":17,"gold":0,"score":-12,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvsssuxWvvvvvs","trace":["SET (9,7) = BLOCKED [out of grid]","NO_BREEZE at (8,7)","NO_STENCH at (8,7)","SET (7,7) = SAFE [no hazard suspicion]","SET (8,8) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=3, min_exit_dist=1","  STEP -> (8,8) via RIGHT"]},{"pos":[7,7],"health":2,"steps":18,"gold":0,"score":-13,"status":"WON","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vpuuuuuuksuuuuuuvpuuuuuuvxuuuuuuvssuuuuuvvvsuuuuvvvvsssuxWvvvvvs","trace":[]}],"map_name":"03_wumpus_hazard_map_01.txt","id":"wumpus-lair","title":"Wumpus Lair","stars":3,"tagline":"Two Wumpuses in the dark. One wrong step is fatal.","fatal":false},{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["***P*D**","*G******","********","********","********","*DP****W","G*******","*****G**"],"exit":[7,7],"config":{"initial_health":45,"gold_value":10,"pit_score_delta":-15,"max_steps":45},"result":{"status":"WON","won":true,"steps":14,"score":51},"frames":[{"pos":[0,0],"health":45,"steps":0,"gold":0,"score":45,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","NO_BREEZE at (1,1)","NO_STENCH at (1,1)","SET (2,1) = SAFE [no hazard suspicion]","SET (1,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,1)","  STEP -> (2,1) via DOWN"]},{"pos":[1,0],"health":44,"steps":1,"gold":0,"score":44,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (2,0) = BLOCKED [out of grid]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (3,1) = SAFE [no hazard suspicion]","SET (2,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,1)","  STEP -> (3,1) via DOWN"]},{"pos":[2,0],"health":43,"steps":2,"gold":0,"score":43,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,0) = BLOCKED [out of grid]","NO_BREEZE at (3,1)","NO_STENCH at (3,1)","SET (4,1) = SAFE [no hazard suspicion]","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,1)","  STEP -> (4,1) via DOWN"]},{"pos":[3,0],"health":42,"steps":3,"gold":0,"score":42,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,0) = BLOCKED [out of grid]","NO_BREEZE at (4,1)","NO_STENCH at (4,1)","SET (5,1) = SAFE [no hazard suspicion]","SET (4,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,1)","  STEP -> (5,1) via DOWN"]},{"pos":[4,0],"health":41,"steps":4,"gold":0,"score":41,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,0) = BLOCKED [out of grid]","NO_BREEZE at (5,1)","NO_STENCH at (5,1)","SET (6,1) = SAFE [no hazard suspicion]","SET (5,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,1)","  STEP -> (6,1) via DOWN"]},{"pos":[5,0],"health":40,"steps":5,"gold":0,"score":40,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuusuuuuuuuuuuuuuuu","trace":["SET (6,0) = BLOCKED [out of grid]","SET (6,2) = BLOCKED [wall detected from (6,1)]","NO_BREEZE at (6,1)","NO_STENCH at (6,1)","SET (7,1) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,1)","  STEP -> (7,1) via DOWN"]},{"pos":[6,0],"health":39,"steps":6,"gold":1,"score":49,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvsuuuuuusuuuuuuu","trace":["SET (7,0) = BLOCKED [out of grid]","NO_BREEZE at (7,1)","NO_STENCH at (7,1)","SET (8,1) = SAFE [no hazard suspicion]","SET (7,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,1)","  STEP -> (8,1) via DOWN"]},{"pos":[7,0],"health":38,"steps":7,"gold":1,"score":48,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvsuuuuuuvsuuuuuu","trace":["SET (9,1) = BLOCKED [out of grid]","SET (8,0) = BLOCKED [out of grid]","NO_BREEZE at (8,1)","NO_STENCH at (8,1)","SET (8,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,2)","  STEP -> (8,2) via RIGHT"]},{"pos":[7,1],"health":37,"steps":8,"gold":1,"score":47,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvsuuuuuuvvsuuuuu","trace":["SET (9,2) = BLOCKED [out of grid]","NO_BREEZE at (8,2)","SET (7,2) = UNKNOWN [not a pit: no breeze from (8,2)]","NO_STENCH at (8,2)","SET (7,2) = SAFE [no hazard suspicion]","SET (8,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,3)","  STEP -> (8,3) via RIGHT"]},{"pos":[7,2],"health":36,"steps":9,"gold":1,"score":46,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvssuuuuuvvvsuuuu","trace":["SET (9,3) = BLOCKED [out of grid]","NO_BREEZE at (8,3)","NO_STENCH at (8,3)","SET (7,3) = SAFE [no hazard suspicion]","SET (8,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,4)","  STEP -> (8,4) via RIGHT"]},{"pos":[7,3],"health":35,"steps":10,"gold":1,"score":45,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvsssuuuuvvvvsuuu","trace":["SET (9,4) = BLOCKED [out of grid]","NO_BREEZE at (8,4)","NO_STENCH at (8,4)","SET (7,4) = SAFE [no hazard suspicion]","SET (8,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,5)","  STEP -> (8,5) via RIGHT"]},{"pos":[7,4],"health":34,"steps":11,"gold":1,"score":44,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvssssuuuvvvvvsuu","trace":["SET (9,5) = BLOCKED [out of grid]","NO_BREEZE at (8,5)","NO_STENCH at (8,5)","SET (7,5) = SAFE [no hazard suspicion]","SET (8,6) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,6)","  STEP -> (8,6) via RIGHT"]},{"pos":[7,5],"health":33,"steps":12,"gold":2,"score":53,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvsssssuuvvvvvvsu","trace":["SET (9,6) = BLOCKED [out of grid]","NO_BREEZE at (8,6)","NO_STENCH at (8,6)","SET (7,6) = SAFE [no hazard suspicion]","SET (8,7) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,7)","  STEP -> (8,7) via RIGHT"]},{"pos":[7,6],"health":32,"steps":13,"gold":2,"score":52,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvssssssuvvvvvvvs","trace":["SET (9,7) = BLOCKED [out of grid]","NO_BREEZE at (8,7)","NO_STENCH at (8,7)","SET (7,7) = SAFE [no hazard suspicion]","SET (8,8) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (8,8)","  STEP -> (8,8) via RIGHT"]},{"pos":[7,7],"health":31,"steps":14,"gold":2,"score":51,"status":"WON","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvsuuuuuuvxuuuuuuvssssssuvvvvvvvs","trace":[]}],"map_name":"04_gold_hunter_map_04.txt","id":"gold-rush","title":"Gold Rush","stars":4,"tagline":"Treasure worth a detour \u2014 if the detour is safe.","fatal":false},{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["********","**DP****","D*******","********","D*******","**P*****","***D**W*","*G**P**G"],"exit":[7,7],"config":{"initial_health":30,"gold_value":10,"pit_score_delta":-15,"max_steps":30},"result":{"status":"WON","won":true,"steps":28,"score":12},"frames":[{"pos":[0,0],"health":30,"steps":0,"gold":0,"score":30,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","NO_BREEZE at (1,1)","NO_STENCH at (1,1)","SET (2,1) = SAFE [no hazard suspicion]","SET (1,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,1)","  STEP -> (2,1) via DOWN"]},{"pos":[1,0],"health":29,"steps":1,"gold":0,"score":29,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvsuuuuuuxuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,1) = BLOCKED [wall detected from (2,1)]","SET (2,0) = BLOCKED [out of grid]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (2,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,2)","  STEP -> (2,2) via RIGHT"]},{"pos":[1,1],"health":28,"steps":2,"gold":0,"score":28,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxsuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (2,3) = BLOCKED [wall detected from (2,2)]","NO_BREEZE at (2,2)","SET (1,2) = UNKNOWN [not a pit: no breeze from (2,2)]","NO_STENCH at (2,2)","SET (1,2) = SAFE [no hazard suspicion]","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,2)","  STEP -> (3,2) via DOWN"]},{"pos":[2,1],"health":27,"steps":3,"gold":0,"score":27,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (3,2)","NO_STENCH at (3,2)","SET (4,2) = SAFE [no hazard suspicion]","SET (3,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,2)","  STEP -> (4,2) via DOWN"]},{"pos":[3,1],"health":26,"steps":4,"gold":0,"score":26,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (4,2)","NO_STENCH at (4,2)","SET (5,2) = SAFE [no hazard suspicion]","SET (4,1) = SAFE [no hazard suspicion]","SET (4,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,2)","  STEP -> (5,2) via DOWN"]},{"pos":[4,1],"health":25,"steps":5,"gold":0,"score":25,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvsuuuuuxvsuuuuuusuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,1) = BLOCKED [wall detected from (5,2)]","NO_BREEZE at (5,2)","NO_STENCH at (5,2)","SET (6,2) = SAFE [no hazard suspicion]","SET (5,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,2)","  STEP -> (6,2) via DOWN"]},{"pos":[5,1],"health":24,"steps":6,"gold":0,"score":24,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvsuuuuuxvsuuuuupvpuuuuuupuuuuuuuuuuuuuu","trace":["BREEZE at (6,2)","SET (7,2) = POSSIBLE_PIT [breeze at (6,2)]","SET (6,1) = POSSIBLE_PIT [breeze at (6,2)]","SET (6,3) = POSSIBLE_PIT [breeze at (6,2)]","NO_STENCH at (6,2)","P2 EXPLORE safe frontier (5,3)","  STEP -> (5,2) via UP"]},{"pos":[4,1],"health":23,"steps":7,"gold":0,"score":23,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvsuuuuuxvsuuuuupvpuuuuuupuuuuuuuuuuuuuu","trace":["NO_BREEZE at (5,2)","SET (5,3) = UNKNOWN [not a pit: no breeze from (5,2)]","NO_STENCH at (5,2)","SET (5,3) = SAFE [no hazard suspicion]","FOLLOW cached path -> (5,3)"]},{"pos":[4,2],"health":22,"steps":8,"gold":0,"score":22,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvsuuuuuxvvpuuuupvpuuuuuupuuuuuuuuuuuuuu","trace":["BREEZE at (5,3)","SET (5,4) = POSSIBLE_PIT [breeze at (5,3)]","NO_STENCH at (5,3)","SET (4,3) = UNKNOWN [not a Wumpus: no stench from (5,3)]","SET (4,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,3)","  STEP -> (4,3) via UP"]},{"pos":[3,2],"health":21,"steps":9,"gold":0,"score":21,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvsuuuuusvvsuuuuxvvpuuuupvpuuuuuupuuuuuuuuuuuuuu","trace":["NO_BREEZE at (4,3)","SET (3,3) = UNKNOWN [not a pit: no breeze from (4,3)]","NO_STENCH at (4,3)","SET (3,3) = SAFE [no hazard suspicion]","SET (4,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,4)","  STEP -> (4,4) via RIGHT"]},{"pos":[3,3],"health":20,"steps":10,"gold":0,"score":20,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvsuuuupvPuuuuuupuuuuuuuuuuuuuu","trace":["NO_BREEZE at (4,4)","SET (5,4) = UNKNOWN [not a pit: no breeze from (4,4)]","NO_STENCH at (4,4)","SET (3,4) = SAFE [no hazard suspicion]","SET (5,4) = SAFE [no hazard suspicion]","SET (4,5) = SAFE [no hazard suspicion]","SET (6,3) = CONFIRMED_PIT [only candidate for breeze at (5,3)]","P2 EXPLORE safe frontier (5,4)","  STEP -> (5,4) via DOWN"]},{"pos":[4,3],"health":19,"steps":11,"gold":0,"score":19,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvsuuupvPsuuuuupuuuuuuuuuuuuuu","trace":["NO_BREEZE at (5,4)","NO_STENCH at (5,4)","SET (6,4) = SAFE [no hazard suspicion]","SET (5,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,4)","  STEP -> (6,4) via DOWN"]},{"pos":[5,3],"health":18,"steps":12,"gold":0,"score":18,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvsuuupvPvpuuuupuxuuuuuuuuuuuu","trace":["SET (7,4) = BLOCKED [wall detected from (6,4)]","BREEZE at (6,4)","SET (6,5) = POSSIBLE_PIT [breeze at (6,4)]","NO_STENCH at (6,4)","P2 EXPLORE safe frontier (5,5)","  STEP -> (5,4) via UP"]},{"pos":[4,3],"health":17,"steps":13,"gold":0,"score":17,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvsuuupvPvpuuuupuxuuuuuuuuuuuu","trace":["NO_BREEZE at (5,4)","SET (5,5) = UNKNOWN [not a pit: no breeze from (5,4)]","NO_STENCH at (5,4)","SET (5,5) = SAFE [no hazard suspicion]","FOLLOW cached path -> (5,5)"]},{"pos":[4,4],"health":16,"steps":14,"gold":0,"score":16,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvsuuuupuxuuuuuuuuuuuu","trace":["NO_BREEZE at (5,5)","SET (4,5) = UNKNOWN [not a pit: no breeze from (5,5)]","SET (6,5) = UNKNOWN [not a pit: no breeze from (5,5)]","NO_STENCH at (5,5)","SET (4,5) = SAFE [no hazard suspicion]","SET (6,5) = SAFE [no hazard suspicion]","SET (5,6) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (6,5)","  STEP -> (6,5) via DOWN"]},{"pos":[5,4],"health":15,"steps":15,"gold":0,"score":15,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvsuuupuxsuuuuuuuuuuu","trace":["NO_BREEZE at (6,5)","NO_STENCH at (6,5)","SET (7,5) = SAFE [no hazard suspicion]","SET (6,6) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (7,5)","  STEP -> (7,5) via DOWN"]},{"pos":[6,4],"health":14,"steps":16,"gold":0,"score":14,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvsuuupuxvpuuuuuupuuu","trace":["BREEZE at (7,5)","SET (8,5) = POSSIBLE_PIT [breeze at (7,5)]","SET (7,6) = POSSIBLE_PIT [breeze at (7,5)]","NO_STENCH at (7,5)","P2 EXPLORE safe frontier (6,6)","  STEP -> (6,5) via UP"]},{"pos":[5,4],"health":13,"steps":17,"gold":0,"score":13,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvsuuupuxvpuuuuuupuuu","trace":["NO_BREEZE at (6,5)","SET (6,6) = UNKNOWN [not a pit: no breeze from (6,5)]","NO_STENCH at (6,5)","SET (6,6) = SAFE [no hazard suspicion]","FOLLOW cached path -> (6,6)"]},{"pos":[5,5],"health":12,"steps":18,"gold":0,"score":12,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvvsuupuxvsuuuuuuPuuu","trace":["NO_BREEZE at (6,6)","SET (5,6) = UNKNOWN [not a pit: no breeze from (6,6)]","SET (7,6) = UNKNOWN [not a pit: no breeze from (6,6)]","NO_STENCH at (6,6)","SET (5,6) = SAFE [no hazard suspicion]","SET (7,6) = SAFE [no hazard suspicion]","SET (6,7) = SAFE [no hazard suspicion]","SET (8,5) = CONFIRMED_PIT [only candidate for breeze at (7,5)]","P2 EXPLORE safe frontier (7,6)","  STEP -> (7,6) via DOWN"]},{"pos":[6,5],"health":11,"steps":19,"gold":0,"score":11,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvvsuupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (7,6)","STENCH at (7,6)","SET (8,6) = POSSIBLE_WUMPUS [stench at (7,6)]","SET (7,7) = POSSIBLE_WUMPUS [stench at (7,6)]","P2 EXPLORE safe frontier (6,7)","  STEP -> (6,6) via UP"]},{"pos":[5,5],"health":10,"steps":20,"gold":0,"score":10,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvsuupvPvvvsuupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (6,6)","SET (5,6) = UNKNOWN [not a pit: no breeze from (6,6)]","SET (6,7) = UNKNOWN [not a pit: no breeze from (6,6)]","NO_STENCH at (6,6)","SET (5,6) = SAFE [no hazard suspicion]","SET (6,7) = SAFE [no hazard suspicion]","FOLLOW cached path -> (6,7)"]},{"pos":[5,6],"health":9,"steps":21,"gold":0,"score":9,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvswupvPvvvvwupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (6,7)","STENCH at (6,7)","SET (5,7) = POSSIBLE_WUMPUS [stench at (6,7)]","SET (6,8) = POSSIBLE_WUMPUS [stench at (6,7)]","P2 EXPLORE safe frontier (5,6)","  STEP -> (6,6) via LEFT"]},{"pos":[5,5],"health":8,"steps":22,"gold":0,"score":8,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsuuuxvvvvswupvPvvvvwupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (6,6)","SET (5,6) = UNKNOWN [not a pit: no breeze from (6,6)]","NO_STENCH at (6,6)","SET (5,6) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=8, min_exit_dist=4","P2 EXPLORE safe frontier (5,6)","  STEP -> (5,6) via UP"]},{"pos":[4,5],"health":7,"steps":23,"gold":0,"score":7,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvssuuxvvvvvsupvPvvvvwupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (5,6)","NO_STENCH at (5,6)","SET (5,7) = UNKNOWN [not a Wumpus: no stench from (5,6)]","SET (4,6) = SAFE [no hazard suspicion]","SET (5,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=7, min_exit_dist=5","P2 EXPLORE safe frontier (5,7)","  STEP -> (5,7) via RIGHT"]},{"pos":[4,6],"health":6,"steps":24,"gold":0,"score":6,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvsssuxvvvvvvspvPvvvvwupuxvvwuuuuuPwuu","trace":["NO_BREEZE at (5,7)","NO_STENCH at (5,7)","SET (4,7) = SAFE [no hazard suspicion]","SET (5,8) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=6, min_exit_dist=4","P2 EXPLORE safe frontier (5,8)","  STEP -> (5,8) via RIGHT"]},{"pos":[4,7],"health":5,"steps":25,"gold":0,"score":5,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvssssxvvvvvvvpvPvvvvsupuxvvWuuuuuPwuu","trace":["SET (5,9) = BLOCKED [out of grid]","NO_BREEZE at (5,8)","NO_STENCH at (5,8)","SET (6,8) = UNKNOWN [not a Wumpus: no stench from (5,8)]","SET (4,8) = SAFE [no hazard suspicion]","SET (6,8) = SAFE [no hazard suspicion]","SET (7,7) = CONFIRMED_WUMPUS [only candidate for stench at (6,7)]","P1 EMERGENCY RETREAT: health=5, min_exit_dist=3","  STEP -> (6,8) via DOWN"]},{"pos":[5,7],"health":4,"steps":26,"gold":0,"score":4,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvssssxvvvvvvvpvPvvvvvupuxvvWsuuuuPwuu","trace":["SET (6,9) = BLOCKED [out of grid]","NO_BREEZE at (6,8)","NO_STENCH at (6,8)","SET (7,8) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=4, min_exit_dist=2","  STEP -> (7,8) via DOWN"]},{"pos":[6,7],"health":3,"steps":27,"gold":0,"score":3,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvssssxvvvvvvvpvPvvvvvupuxvvWvuuuuPwuw","trace":["SET (7,9) = BLOCKED [out of grid]","NO_BREEZE at (7,8)","STENCH at (7,8)","SET (8,8) = POSSIBLE_WUMPUS [stench at (7,8)]","P1 EMERGENCY RETREAT: health=3, min_exit_dist=1","  STEP -> (8,8) via DOWN"]},{"pos":[7,7],"health":2,"steps":28,"gold":1,"score":12,"status":"WON","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vsuuuuuuvvxuuuuuxvssuuuusvvvssssxvvvvvvvpvPvvvvvupuxvvWvuuuuPwuw","trace":[]}],"map_name":"05_hard_complex_map_04.txt","id":"gauntlet","title":"The Gauntlet","stars":5,"tagline":"Pits, a Wumpus, walls, and a tight health budget.","fatal":false},{"version":1,"agent":"rules","seed":42,"grid_size":8,"truth":["**D*****","GD******","****P***","**D*G***","*P*W****","*D*P****","********","********"],"exit":[7,7],"config":{"initial_health":30,"gold_value":10,"pit_score_delta":-15,"max_steps":30},"result":{"status":"DEAD_HEALTH","won":false,"steps":25,"score":5},"frames":[{"pos":[0,0],"health":30,"steps":0,"gold":0,"score":30,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,1) = SAFE [visited (1,1)]","SET (0,1) = BLOCKED [out of grid]","SET (1,0) = BLOCKED [out of grid]","NO_BREEZE at (1,1)","NO_STENCH at (1,1)","SET (2,1) = SAFE [no hazard suspicion]","SET (1,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,1)","  STEP -> (2,1) via DOWN"]},{"pos":[1,0],"health":29,"steps":1,"gold":1,"score":39,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvxuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (2,0) = BLOCKED [out of grid]","SET (2,2) = BLOCKED [wall detected from (2,1)]","NO_BREEZE at (2,1)","NO_STENCH at (2,1)","SET (3,1) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,1)","  STEP -> (3,1) via DOWN"]},{"pos":[2,0],"health":28,"steps":2,"gold":1,"score":38,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvxuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (3,0) = BLOCKED [out of grid]","NO_BREEZE at (3,1)","NO_STENCH at (3,1)","SET (4,1) = SAFE [no hazard suspicion]","SET (3,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (4,1)","  STEP -> (4,1) via DOWN"]},{"pos":[3,0],"health":27,"steps":3,"gold":1,"score":37,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsuuuuuuvxuuuuuuvsuuuuuuvsuuuuuusuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,0) = BLOCKED [out of grid]","NO_BREEZE at (4,1)","NO_STENCH at (4,1)","SET (5,1) = SAFE [no hazard suspicion]","SET (4,2) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (5,1)","  STEP -> (5,1) via DOWN"]},{"pos":[4,0],"health":26,"steps":4,"gold":1,"score":36,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvxuuuuuuvsuuuuuuvsuuuuuuvpuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (5,0) = BLOCKED [out of grid]","BREEZE at (5,1)","SET (6,1) = POSSIBLE_PIT [breeze at (5,1)]","SET (5,2) = POSSIBLE_PIT [breeze at (5,1)]","NO_STENCH at (5,1)","P2 EXPLORE safe frontier (4,2)","  STEP -> (4,1) via UP"]},{"pos":[3,0],"health":25,"steps":5,"gold":1,"score":35,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvxuuuuuuvsuuuuuuvsuuuuuuvpuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (4,1)","SET (4,2) = UNKNOWN [not a pit: no breeze from (4,1)]","NO_STENCH at (4,1)","SET (4,2) = SAFE [no hazard suspicion]","FOLLOW cached path -> (4,2)"]},{"pos":[3,1],"health":24,"steps":6,"gold":1,"score":34,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvxuuuuuuvsuuuuuuvvxuuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,3) = BLOCKED [wall detected from (4,2)]","BREEZE at (4,2)","NO_STENCH at (4,2)","SET (3,2) = UNKNOWN [not a Wumpus: no stench from (4,2)]","SET (3,2) = SAFE [no hazard suspicion]","SET (5,2) = CONFIRMED_PIT [only candidate for breeze at (4,2)]","P2 EXPLORE safe frontier (3,2)","  STEP -> (3,2) via UP"]},{"pos":[2,1],"health":23,"steps":7,"gold":1,"score":33,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvxuuuuuuvvsuuuuuvvxuuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (3,2)","NO_STENCH at (3,2)","SET (3,3) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,3)","  STEP -> (3,3) via RIGHT"]},{"pos":[2,2],"health":22,"steps":8,"gold":1,"score":32,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsuuuuuuvxsuuuuuvvvsuuuuvvxuuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (3,3)","NO_STENCH at (3,3)","SET (2,3) = SAFE [no hazard suspicion]","SET (3,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (3,4)","  STEP -> (3,4) via RIGHT"]},{"pos":[2,3],"health":21,"steps":9,"gold":1,"score":31,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsuuuuuuvxspuuuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (3,4)","SET (2,4) = POSSIBLE_PIT [breeze at (3,4)]","SET (4,4) = POSSIBLE_PIT [breeze at (3,4)]","SET (3,5) = POSSIBLE_PIT [breeze at (3,4)]","NO_STENCH at (3,4)","P2 EXPLORE safe frontier (2,3)","  STEP -> (3,3) via LEFT"]},{"pos":[2,2],"health":20,"steps":10,"gold":1,"score":30,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsuuuuuuvxspuuuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (3,3)","SET (2,3) = UNKNOWN [not a pit: no breeze from (3,3)]","NO_STENCH at (3,3)","SET (2,3) = SAFE [no hazard suspicion]","FOLLOW cached path -> (2,3)"]},{"pos":[1,2],"health":19,"steps":11,"gold":1,"score":29,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsxuuuuuvxvsuuuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (1,3) = BLOCKED [wall detected from (2,3)]","NO_BREEZE at (2,3)","SET (2,4) = UNKNOWN [not a pit: no breeze from (2,3)]","NO_STENCH at (2,3)","SET (2,4) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,4)","  STEP -> (2,4) via RIGHT"]},{"pos":[1,3],"health":18,"steps":12,"gold":1,"score":28,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsxsuuuuvxvvsuuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (2,4)","NO_STENCH at (2,4)","SET (1,4) = SAFE [no hazard suspicion]","SET (2,5) = SAFE [no hazard suspicion]","P2 EXPLORE safe frontier (2,5)","  STEP -> (2,5) via RIGHT"]},{"pos":[1,4],"health":17,"steps":13,"gold":1,"score":27,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"LEFT","belief":"vsxspuuuvxvvvpuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (2,5)","SET (1,5) = POSSIBLE_PIT [breeze at (2,5)]","SET (2,6) = POSSIBLE_PIT [breeze at (2,5)]","NO_STENCH at (2,5)","P2 EXPLORE safe frontier (1,4)","  STEP -> (2,4) via LEFT"]},{"pos":[1,3],"health":16,"steps":14,"gold":1,"score":26,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"UP","belief":"vsxspuuuvxvvvpuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (2,4)","SET (1,4) = UNKNOWN [not a pit: no breeze from (2,4)]","NO_STENCH at (2,4)","SET (1,4) = SAFE [no hazard suspicion]","FOLLOW cached path -> (1,4)"]},{"pos":[0,3],"health":15,"steps":15,"gold":1,"score":25,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (0,4) = BLOCKED [out of grid]","NO_BREEZE at (1,4)","SET (1,5) = UNKNOWN [not a pit: no breeze from (1,4)]","NO_STENCH at (1,4)","SET (1,5) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=15, min_exit_dist=11","  STEP -> (2,4) via DOWN"]},{"pos":[1,3],"health":14,"steps":16,"gold":1,"score":24,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["NO_BREEZE at (2,4)","NO_STENCH at (2,4)","P1 EMERGENCY RETREAT: health=14, min_exit_dist=10","  STEP -> (3,4) via DOWN"]},{"pos":[2,3],"health":13,"steps":17,"gold":1,"score":23,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvpuuuvvxpuuuuvPuuuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (3,4)","NO_STENCH at (3,4)","P1 EMERGENCY RETREAT: health=13, min_exit_dist=9","  STEP -> (4,4) via DOWN"]},{"pos":[3,3],"health":12,"steps":18,"gold":1,"score":22,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"UP","belief":"vsxvsuuuvxvvvpuuvvvvPuuuvvxvwuuuvPuwuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["SET (4,4) = SAFE [visited (4,4)]","NO_BREEZE at (4,4)","STENCH at (4,4)","SET (5,4) = POSSIBLE_WUMPUS [stench at (4,4)]","SET (4,5) = POSSIBLE_WUMPUS [stench at (4,4)]","SET (3,5) = CONFIRMED_PIT [only candidate for breeze at (3,4)]","P1 EMERGENCY RETREAT: health=12, min_exit_dist=8","  STEP -> (3,4) via UP"]},{"pos":[2,3],"health":11,"steps":19,"gold":1,"score":21,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsxvsuuuvxvvvpuuvvvvPuuuvvxvwuuuvPuwuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (3,4)","NO_STENCH at (3,4)","P1 EMERGENCY RETREAT: health=11, min_exit_dist=9","  STEP -> (3,5) via RIGHT"]},{"pos":[2,4],"health":5,"steps":20,"gold":1,"score":0,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvsuuuvPuWuuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["KNOWN_PIT entered at (3,5)","SET (3,5) = SAFE [visited (3,5)]","NO_BREEZE at (3,5)","NO_STENCH at (3,5)","SET (4,5) = UNKNOWN [not a Wumpus: no stench from (3,5)]","SET (4,5) = SAFE [no hazard suspicion]","SET (3,6) = SAFE [no hazard suspicion]","SET (5,4) = CONFIRMED_WUMPUS [only candidate for stench at (4,4)]","P1 EMERGENCY RETREAT: health=5, min_exit_dist=8","  STEP -> (4,5) via DOWN"]},{"pos":[3,4],"health":4,"steps":21,"gold":2,"score":9,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvvpuuvPuWpuuupuuuuuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (4,5)","SET (5,5) = POSSIBLE_PIT [breeze at (4,5)]","SET (4,6) = POSSIBLE_PIT [breeze at (4,5)]","NO_STENCH at (4,5)","P1 EMERGENCY RETREAT: health=4, min_exit_dist=7","  STEP -> (5,5) via DOWN"]},{"pos":[4,4],"health":3,"steps":22,"gold":2,"score":8,"status":"RUNNING","breeze":false,"stench":true,"glitter":false,"action":"UP","belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvvpuuvPuWvwuupuuuwuuuuuuuuuuuuuuuuuuu","trace":["SET (5,5) = SAFE [visited (5,5)]","NO_BREEZE at (5,5)","STENCH at (5,5)","SET (6,5) = POSSIBLE_WUMPUS [stench at (5,5)]","SET (5,6) = POSSIBLE_WUMPUS [stench at (5,5)]","P1 EMERGENCY RETREAT: health=3, min_exit_dist=6","  STEP -> (4,5) via UP"]},{"pos":[3,4],"health":2,"steps":23,"gold":2,"score":7,"status":"RUNNING","breeze":true,"stench":false,"glitter":false,"action":"RIGHT","belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvvpuuvPuWvwuupuuuwuuuuuuuuuuuuuuuuuuu","trace":["BREEZE at (4,5)","NO_STENCH at (4,5)","P1 EMERGENCY RETREAT: health=2, min_exit_dist=7","  STEP -> (4,6) via RIGHT"]},{"pos":[3,5],"health":1,"steps":24,"gold":2,"score":6,"status":"RUNNING","breeze":false,"stench":false,"glitter":false,"action":"DOWN","belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvvvsuvPuWvsuupuuuwuuuuuuuuuuuuuuuuuuu","trace":["SET (4,6) = SAFE [visited (4,6)]","NO_BREEZE at (4,6)","SET (3,6) = UNKNOWN [not a pit: no breeze from (4,6)]","NO_STENCH at (4,6)","SET (5,6) = UNKNOWN [not a Wumpus: no stench from (4,6)]","SET (3,6) = SAFE [no hazard suspicion]","SET (5,6) = SAFE [no hazard suspicion]","SET (4,7) = SAFE [no hazard suspicion]","P1 EMERGENCY RETREAT: health=1, min_exit_dist=6","  STEP -> (5,6) via DOWN"]},{"pos":[4,5],"health":0,"steps":25,"gold":2,"score":5,"status":"DEAD_HEALTH","breeze":false,"stench":false,"glitter":false,"action":null,"belief":"vsxvsuuuvxvvvpuuvvvvPsuuvvxvvvsuvPuWvsuupuuuwuuuuuuuuuuuuuuuuuuu","trace":[]}],"map_name":"05_hard_complex_map_03.txt","id":"last-stand","title":"Last Stand","stars":5,"tagline":"It refuses the deadly gamble \u2014 and pays the price.","fatal":true}]};
+
+/* ---------- state ---------- */
+const S = { ep: 0, frame: 0, playing: false, timer: null, xray: false, autoXrayDone: false };
+const $ = (id) => document.getElementById(id);
+const board = $("board"), logEl = $("log");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const BELIEF_TITLE = { u:"unknown", s:"inferred SAFE", v:"visited", p:"possible pit",
+  w:"possible Wumpus", b:"possible pit or Wumpus", P:"CONFIRMED pit", W:"CONFIRMED Wumpus",
+  k:"known pit (survived it)", x:"wall" };
+const BELIEF_GLYPH = { p:"🕳", w:"👹", b:"⚠", P:"🕳", W:"👹", k:"🕳" };
+const TRUTH_GLYPH = { P:"🕳", W:"👹", G:"🪙" };
+
+function ep() { return DATA.episodes[S.ep]; }
+
+/* ---------- build board for current episode ---------- */
+let cells = [], agentEl = null;
+function buildBoard() {
+  const e = ep();
+  board.innerHTML = "";
+  cells = [];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    const glyph = document.createElement("span");
+    glyph.className = "glyph";
+    cell.appendChild(glyph);
+    const t = e.truth[r][c];
+    if (t !== "*") {
+      const truth = document.createElement("span");
+      truth.className = "truth";
+      if (t === "D") { cell.classList.add("t-wall"); truth.textContent = ""; }
+      else truth.textContent = TRUTH_GLYPH[t] || "";
+      cell.appendChild(truth);
+    }
+    if (r === e.exit[0] && c === e.exit[1]) {
+      cell.classList.add("is-exit");
+      const em = document.createElement("span");
+      em.className = "exit-mark"; em.textContent = "🚪";
+      cell.appendChild(em);
+    }
+    board.appendChild(cell);
+    cells.push(cell);
+  }
+  agentEl = document.createElement("div");
+  agentEl.id = "agent";
+  agentEl.innerHTML = '<span class="ring"></span>🤖';
+  board.appendChild(agentEl);
+  requestAnimationFrame(placeAgent);
+}
+function cellRect(i) {
+  const b = board.getBoundingClientRect(), r = cells[i].getBoundingClientRect();
+  return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height };
+}
+function placeAgent() {
+  const f = ep().frames[S.frame], i = f.pos[0] * 8 + f.pos[1], rc = cellRect(i);
+  agentEl.style.width = rc.w + "px"; agentEl.style.height = rc.h + "px";
+  agentEl.style.transform = `translate(${rc.x}px, ${rc.y}px)`;
+}
+
+/* ---------- render one frame ---------- */
+function classify(line) {
+  if (/(EMERGENCY|DEAD|RISKY)/.test(line)) return "danger";
+  if (/CONFIRMED_PIT|KNOWN_PIT/.test(line)) return "pit confirm";
+  if (/CONFIRMED_WUMPUS/.test(line)) return "wumpus confirm";
+  if (/(POSSIBLE_PIT|BREEZE|breeze|pit)/.test(line)) return "pit";
+  if (/(POSSIBLE_WUMPUS|STENCH|stench|[Ww]umpus)/.test(line)) return "wumpus";
+  if (/(SAFE|not a pit|not a Wumpus)/.test(line)) return "safe";
+  if (/^(P[1-9]|FOLLOW|FALLBACK|  STEP)/.test(line)) return "policy";
+  return "muted";
+}
+function renderLog() {
+  const e = ep(); logEl.innerHTML = "";
+  for (let i = 0; i <= S.frame && i < e.frames.length; i++) {
+    const f = e.frames[i];
+    if (!f.trace.length && f.action === null) continue;
+    const entry = document.createElement("div");
+    entry.className = "entry" + (i === S.frame ? " current" : "");
+    const head = document.createElement("div");
+    head.className = "entry-head";
+    head.innerHTML = `STEP ${String(i).padStart(2, "0")} <span class="act">→ ${f.action ?? "—"}</span>`;
+    entry.appendChild(head);
+    for (const line of f.trace) {
+      const ln = document.createElement("div");
+      ln.className = "ln " + classify(line);
+      ln.textContent = line;
+      entry.appendChild(ln);
+    }
+    logEl.appendChild(entry);
+  }
+  logEl.scrollTop = logEl.scrollHeight;
+  $("logStep").textContent = `frame ${S.frame + 1}/${ep().frames.length}`;
+}
+function render() {
+  const e = ep(), f = e.frames[S.frame];
+
+  for (let i = 0; i < 64; i++) {
+    const cell = cells[i], code = f.belief ? f.belief[i] : "u";
+    cell.className = cell.className.replace(/\bb-\S+/g, "").trim();
+    if (code !== "u") cell.classList.add("b-" + code);
+    const glyph = cell.firstChild;
+    glyph.textContent = BELIEF_GLYPH[code] || "";
+    const r = (i / 8) | 0, c = i % 8;
+    cell.title = `(${r + 1},${c + 1}) · ${BELIEF_TITLE[code]}` + (S.xray ? ` · truth: ${e.truth[r][c]}` : "");
+  }
+  placeAgent();
+
+  const hp = Math.max(0, f.health) / e.config.initial_health;
+  $("healthFill").style.width = (hp * 100).toFixed(1) + "%";
+  $("healthBar").className = "bar" + (hp <= .28 ? " low" : hp <= .55 ? " mid" : "");
+  $("stSteps").textContent = f.steps;
+  $("stGold").textContent = f.gold;
+  $("stScore").textContent = f.score;
+  $("bBreeze").classList.toggle("on", f.breeze);
+  $("bStench").classList.toggle("on", f.stench);
+
+  const chip = $("statusChip");
+  if (f.status === "WON") { chip.textContent = "ESCAPED"; chip.className = "status-chip won"; }
+  else if (f.status.startsWith("DEAD")) { chip.textContent = "DIED"; chip.className = "status-chip dead"; }
+  else if (f.status === "RUNNING") { chip.textContent = "EXPLORING"; chip.className = "status-chip"; }
+  else { chip.textContent = f.status; chip.className = "status-chip dead"; }
+
+  $("scrub").value = S.frame;
+  $("frameLbl").textContent = `${S.frame + 1} / ${e.frames.length}`;
+  renderLog();
+
+  // event moments
+  if (S.frame > 0) {
+    const prev = e.frames[S.frame - 1];
+    if (prev.health - f.health > 1 && !reduced) {           // fell into a pit
+      const fl = $("flash"); fl.classList.remove("hit"); void fl.offsetWidth; fl.classList.add("hit");
+    }
+  }
+  const last = S.frame === e.frames.length - 1;
+  const stamp = $("stamp");
+  if (last && f.status !== "RUNNING") {
+    const won = f.status === "WON";
+    $("stampText").textContent = won ? "ESCAPED" : "DEFEATED";
+    stamp.className = "stamp show " + (won ? "win" : "loss");
+    if (won && !reduced) confetti(f.pos);
+    if (!S.autoXrayDone) { S.autoXrayDone = true; setTimeout(() => setXray(true), 650); }
+  } else {
+    stamp.className = "stamp";
+  }
+}
+
+function confetti(pos) {
+  const i = pos[0] * 8 + pos[1], rc = cellRect(i);
+  for (let k = 0; k < 14; k++) {
+    const s = document.createElement("span");
+    s.className = "spark";
+    s.textContent = ["✦", "✧", "★"][k % 3];
+    s.style.left = rc.x + rc.w / 2 + "px"; s.style.top = rc.y + rc.h / 2 + "px";
+    s.style.color = ["#f2c14e", "#41d3dc", "#3ac96a"][k % 3];
+    s.style.setProperty("--dx", (Math.cos(k / 14 * 6.283) * (46 + (k % 4) * 16)) + "px");
+    s.style.setProperty("--dy", (Math.sin(k / 14 * 6.283) * (46 + (k % 4) * 16) - 22) + "px");
+    board.appendChild(s);
+    setTimeout(() => s.remove(), 1050);
+  }
+}
+
+/* ---------- x-ray ---------- */
+function setXray(on) {
+  S.xray = on;
+  $("btnXray").classList.toggle("toggled", on);
+  if (on && !reduced) {                                     // sonar sweep from the agent
+    const f = ep().frames[S.frame];
+    for (let i = 0; i < 64; i++) {
+      const truth = cells[i].querySelector(".truth");
+      if (!truth) continue;
+      const d = Math.hypot(((i / 8) | 0) - f.pos[0], (i % 8) - f.pos[1]);
+      truth.style.transitionDelay = (d * 55) + "ms";
+    }
+  } else {
+    for (const cell of cells) {
+      const truth = cell.querySelector(".truth");
+      if (truth) truth.style.transitionDelay = "0ms";
+    }
+  }
+  document.body.classList.toggle("xray", on);
+  render();
+}
+
+/* ---------- playback ---------- */
+function setFrame(i, { fromUser = false } = {}) {
+  S.frame = Math.max(0, Math.min(ep().frames.length - 1, i));
+  if (fromUser) stop();
+  render();
+}
+function tick() {
+  if (S.frame >= ep().frames.length - 1) { stop(); return; }
+  S.frame += 1; render();
+  S.timer = setTimeout(tick, +$("speed").value * 1000);
+}
+function play() {
+  if (S.playing) return;
+  if (S.frame >= ep().frames.length - 1) { S.frame = 0; if (S.xray) setXray(false); S.autoXrayDone = false; }
+  S.playing = true; $("btnPlay").textContent = "❚❚";
+  S.timer = setTimeout(tick, 120);
+}
+function stop() {
+  S.playing = false; $("btnPlay").textContent = "▶";
+  if (S.timer) { clearTimeout(S.timer); S.timer = null; }
+}
+
+/* ---------- episodes ---------- */
+function selectEpisode(idx, { autoplay = true } = {}) {
+  stop();
+  S.ep = idx; S.frame = 0; S.autoXrayDone = false;
+  if (S.xray) setXray(false);
+  const e = ep();
+  document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", i === idx));
+  $("epTitle").textContent = e.title;
+  $("epTag").textContent = e.tagline;
+  $("credEp").textContent = `${e.map_name} · agent: ${e.agent} · seed ${e.seed}`;
+  $("scrub").max = e.frames.length - 1;
+  history.replaceState(null, "", "#" + e.id);
+  buildBoard();
+  render();
+  if (autoplay) setTimeout(play, 500);
+}
+function buildTabs() {
+  const tabs = $("tabs");
+  DATA.episodes.forEach((e, i) => {
+    const b = document.createElement("button");
+    b.className = "tab";
+    b.innerHTML = e.fatal
+      ? `${e.title}<span class="skull">💀</span>`
+      : `${e.title}<span class="stars">${"★".repeat(e.stars)}</span>`;
+    b.addEventListener("click", () => selectEpisode(i));
+    tabs.appendChild(b);
+  });
+}
+
+/* ---------- wiring ---------- */
+buildTabs();
+$("btnPlay").addEventListener("click", () => (S.playing ? stop() : play()));
+$("btnPrev").addEventListener("click", () => setFrame(S.frame - 1, { fromUser: true }));
+$("btnNext").addEventListener("click", () => setFrame(S.frame + 1, { fromUser: true }));
+$("btnRestart").addEventListener("click", () => { setXray(false); S.autoXrayDone = false; setFrame(0, { fromUser: true }); play(); });
+$("btnXray").addEventListener("click", () => setXray(!S.xray));
+$("scrub").addEventListener("input", (ev) => setFrame(+ev.target.value, { fromUser: true }));
+addEventListener("keydown", (ev) => {
+  if (ev.target.tagName === "SELECT") return;
+  if (ev.code === "Space") { ev.preventDefault(); S.playing ? stop() : play(); }
+  else if (ev.key === "ArrowRight") setFrame(S.frame + 1, { fromUser: true });
+  else if (ev.key === "ArrowLeft") setFrame(S.frame - 1, { fromUser: true });
+  else if (ev.key.toLowerCase() === "x") setXray(!S.xray);
+  else if (ev.key.toLowerCase() === "r") { setXray(false); S.autoXrayDone = false; setFrame(0, { fromUser: true }); play(); }
+});
+addEventListener("resize", placeAgent);
+
+const fromHash = DATA.episodes.findIndex((e) => "#" + e.id === location.hash);
+selectEpisode(fromHash >= 0 ? fromHash : 0);
+</script>
+</body>
+</html>

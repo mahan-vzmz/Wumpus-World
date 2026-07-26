@@ -40,6 +40,31 @@
 
 ---
 
+## 🎮 دموی تعاملی — داخل ذهن عامل
+
+عامل قاعده‌محور را گام‌به‌گام تماشا کنید: **نقشهٔ باور زنده** (امن / چاهِ مشکوک / غولِ مشکوک / قطعی)، **لاگ استدلال هم‌زمان** و دکمهٔ **X-ray** برای مقایسهٔ باورهای عامل با حقیقتِ پنهان — روی ۶ نقشه از آسان تا مرگبار، در **یک فایل HTML خودکفا** (بدون سرور، بدون کتابخانه؛ کافی است دابل‌کلیک کنید).
+
+<div dir="ltr">
+
+[![Interactive demo — the agent's live belief map and reasoning log](docs/assets/demo_preview.svg)](docs/demo/index.html)
+
+</div>
+
+بازتولید و اجرا:
+
+<div dir="ltr">
+
+```bash
+python -m wumpus visualize      # builds docs/demo/index.html
+start docs/demo/index.html      # Windows — or just double-click the file
+```
+
+</div>
+
+> 💡 با فعال‌کردن GitHub Pages روی پوشهٔ `docs/`، دمو به‌صورت آنلاین در `https://mahan-vzmz.github.io/Wumpus-World/demo/` در دسترس قرار می‌گیرد.
+
+---
+
 ## 🏗️ معماری ساختار پروژه
 
 <div dir="ltr">

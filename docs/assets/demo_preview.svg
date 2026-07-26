@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="470" viewBox="0 0 940 470" role="img" aria-labelledby="t">
+<title id="t">Interactive demo preview: the agent&#39;s live belief map</title>
+<rect width="940" height="470" rx="18" fill="#0b0e15"/>
+<text x="42" y="46" font-family="Consolas, monospace" font-size="24" font-weight="700" fill="#edf1f8">WUMPUS WORLD <tspan fill="#41d3dc">/ inside the mind of an AI</tspan></text>
+<text x="42" y="68" font-family="Consolas, monospace" font-size="12" fill="#5c6577">live belief map · reasoning log · x-ray truth reveal — one self-contained HTML file</text>
+<rect x="32" y="74" width="384" height="384" rx="12" fill="#0f131d" stroke="#1d2430"/>
+<rect x="42" y="84" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="84" width="42" height="42" rx="7" fill="#3a2f14" stroke="#8a6a1f" stroke-width="1.4"/>
+<text x="109.0" y="111.0" text-anchor="middle" font-size="18">🕳</text>
+<rect x="134" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="180" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="84" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="130" width="42" height="42" rx="7" fill="#1b2431" stroke="#dfa32b" stroke-width="1.4"/>
+<text x="63.0" y="157.0" text-anchor="middle" font-size="18">🕳</text>
+<rect x="88" y="130" width="42" height="42" rx="7" fill="#12362b" stroke="#1f7a58" stroke-width="1.4"/>
+<rect x="134" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="180" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="130" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="176" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="176" width="42" height="42" rx="7" fill="#3a2f14" stroke="#8a6a1f" stroke-width="1.4"/>
+<text x="109.0" y="203.0" text-anchor="middle" font-size="18">🕳</text>
+<rect x="134" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="180" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="176" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="222" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="222" width="42" height="42" rx="7" fill="#232833" stroke="#3a4150" stroke-width="1.4"/>
+<rect x="134" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="180" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="222" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="268" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="268" width="42" height="42" rx="7" fill="#12362b" stroke="#1f7a58" stroke-width="1.4"/>
+<rect x="134" y="268" width="42" height="42" rx="7" fill="#12362b" stroke="#1f7a58" stroke-width="1.4"/>
+<rect x="180" y="268" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="268" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="268" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="268" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="268" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="314" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="314" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="134" y="314" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="180" y="314" width="42" height="42" rx="7" fill="#12362b" stroke="#1f7a58" stroke-width="1.4"/>
+<rect x="226" y="314" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="314" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="314" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="314" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="360" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="88" y="360" width="42" height="42" rx="7" fill="#1b2431" stroke="#2c3648" stroke-width="1.4"/>
+<rect x="134" y="360" width="42" height="42" rx="7" fill="#12362b" stroke="#1f7a58" stroke-width="1.4"/>
+<rect x="180" y="360" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="360" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="360" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="360" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="360" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="42" y="406" width="42" height="42" rx="7" fill="#232833" stroke="#3a4150" stroke-width="1.4"/>
+<rect x="88" y="406" width="42" height="42" rx="7" fill="#571f1f" stroke="#e05252" stroke-width="1.4"/>
+<text x="109.0" y="433.0" text-anchor="middle" font-size="18">👹</text>
+<rect x="134" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="180" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="226" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="272" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="318" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<rect x="364" y="406" width="42" height="42" rx="7" fill="#10141d" stroke="#1c2230" stroke-width="1.4"/>
+<text x="385.0" y="433.0" text-anchor="middle" font-size="16">🚪</text>
+<circle cx="155.0" cy="335.0" r="18.0" fill="none" stroke="#41d3dc" stroke-width="2" opacity="0.85"/>
+<text x="155.0" y="342.0" text-anchor="middle" font-size="20">🤖</text>
+<text x="470" y="104" font-family="Consolas, monospace" font-size="13" fill="#5c6577" letter-spacing="3">MIND LOG · LIVE REASONING</text>
+<rect x="456" y="118" width="442" height="196" rx="12" fill="#131826" stroke="#1d2430"/>
+<text x="470" y="148" font-family="Consolas, monospace" font-size="12.5" fill="#ef8f8f">STENCH at (7,2)</text>
+<text x="470" y="176" font-family="Consolas, monospace" font-size="12.5" fill="#ef8f8f">SET (8,2) = POSSIBLE_WUMPUS [stench at (7,2)]</text>
+<text x="470" y="204" font-family="Consolas, monospace" font-size="12.5" fill="#e3b158">KNOWN_PIT entered at (2,1)</text>
+<text x="470" y="232" font-family="Consolas, monospace" font-size="12.5" fill="#ff8383">SET (8,2) = CONFIRMED_WUMPUS [only candidate for …</text>
+<text x="470" y="260" font-family="Consolas, monospace" font-size="12.5" fill="#ff8383">P1 EMERGENCY RETREAT: health=12, min_exit_dist=8</text>
+<text x="470" y="288" font-family="Consolas, monospace" font-size="12.5" fill="#6fd7de">P2 EXPLORE safe frontier (3,1)</text>
+<text x="470" y="352" font-family="Consolas, monospace" font-size="12" fill="#98a2b4"><tspan fill="#1f7a58">■</tspan> safe · <tspan fill="#8a6a1f">■</tspan> pit? · <tspan fill="#8a3a3a">■</tspan> wumpus? · <tspan fill="#dfa32b">■</tspan> confirmed · 🤖 agent · 🚪 exit</text>
+<rect x="468" y="376" width="300" height="44" rx="10" fill="#0f2b2d" stroke="#41d3dc" stroke-width="1.5"/>
+<text x="618" y="404" text-anchor="middle" font-family="Consolas, monospace" font-size="15" font-weight="700" fill="#41d3dc">▶ OPEN THE INTERACTIVE DEMO</text>
+<text x="470" y="446" font-family="Consolas, monospace" font-size="11" fill="#5c6577">python -m wumpus visualize → docs/demo/index.html</text>
+</svg>
