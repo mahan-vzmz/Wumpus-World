@@ -115,6 +115,10 @@ class GameConfig:
             raise ValueError("pit_score_delta must be non-positive")
         if not self.exit_position.is_inside(self.grid_size):
             raise ValueError("exit_position must be inside the grid")
+        if self.exit_position == Position(0, 0):
+            # Start is fixed at (1,1)==Position(0,0). A coincident exit is a
+            # degenerate map: the agent would have to leave and re-enter to win.
+            raise ValueError("exit cannot equal the start position (1,1)")
         if self.pit_rounding != "floor_with_min_one":
             raise ValueError("unsupported pit rounding policy")
         if self.max_steps is None:

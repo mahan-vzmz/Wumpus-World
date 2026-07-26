@@ -1,3 +1,5 @@
+import pytest
+
 from wumpus.core.domain import Action, GameConfig, GameMap, Position, Tile
 
 
@@ -16,6 +18,11 @@ def test_position_movement_and_neighbors_are_deterministic() -> None:
 def test_config_derives_default_step_limit() -> None:
     config = GameConfig(100, 25, -10, Position(7, 7))
     assert config.max_steps == 100
+
+
+def test_config_rejects_exit_equal_to_start() -> None:
+    with pytest.raises(ValueError, match="exit cannot equal the start"):
+        GameConfig(100, 25, -10, Position(0, 0))
 
 
 def test_map_is_immutable_and_has_eight_by_eight_shape() -> None:
