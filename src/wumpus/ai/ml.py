@@ -10,6 +10,7 @@ Supports:
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -198,8 +199,21 @@ def save_model(model: Any, filepath: Path) -> None:
     joblib.dump(payload, filepath)
 
 
-def load_model(filepath: Path) -> Any:
-    """Deserialize model from disk."""
+def load_model(filepath: Path, expected_sha256: str | None = None) -> Any:
+    """Deserialize a model from disk.
+
+    SECURITY: joblib uses pickle under the hood, so loading a file can execute
+    arbitrary code embedded in it. Only load models from TRUSTED sources. Pass
+    ``expected_sha256`` to fail fast when the file does not match a known hash.
+    """
+    filepath = Path(filepath)
+    if expected_sha256 is not None:
+        actual = hashlib.sha256(filepath.read_bytes()).hexdigest()
+        if actual != expected_sha256:
+            raise ValueError(
+                f"Model SHA-256 mismatch for '{filepath}': expected "
+                f"{expected_sha256}, got {actual}"
+            )
     payload = joblib.load(filepath)
     if payload.get("feature_version") != FEATURE_VERSION:
         raise ValueError(

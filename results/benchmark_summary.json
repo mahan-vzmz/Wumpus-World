@@ -1,7 +1,15 @@
 {
   "experiment": {
-    "seed": 42,
+    "seeds": [
+      42,
+      123,
+      777,
+      2024,
+      31337
+    ],
     "map_count": 20,
+    "maps_evaluated": 20,
+    "skipped_maps": [],
     "maps_dir": "data\\maps\\holdout_suite",
     "include_ml": true,
     "model_sha256": "0a0cb1f1899a0856cc2a2f23a1d3e17671fbc306832b5e94a63f57d098cf97ad",
@@ -11,53 +19,143 @@
   "summary": {
     "greedy": {
       "visibility": "Partial",
-      "total_runs": 20,
-      "win_rate_pct": 80.0,
-      "mean_score": 16.15,
-      "mean_steps": 12.8,
-      "total_pits": 12,
-      "wumpus_deaths": 3,
-      "mean_runtime_ms": 0.45269499969435856
+      "total_runs": 100,
+      "n_maps": 20,
+      "seeds": [
+        42,
+        123,
+        777,
+        2024,
+        31337
+      ],
+      "win_rate_pct": 78.0,
+      "win_rate_ci": [
+        65.0,
+        88.0
+      ],
+      "mean_score": 21.64,
+      "mean_score_ci": [
+        15.87,
+        27.4
+      ],
+      "median_score": 26.0,
+      "mean_final_score_wins": 21.76923076923077,
+      "mean_steps": 12.58,
+      "total_pits": 37,
+      "wumpus_deaths": 19,
+      "mean_runtime_ms": 0.9045159998640884
     },
     "ml": {
       "visibility": "Partial",
-      "total_runs": 20,
+      "total_runs": 100,
+      "n_maps": 20,
+      "seeds": [
+        42,
+        123,
+        777,
+        2024,
+        31337
+      ],
       "win_rate_pct": 70.0,
+      "win_rate_ci": [
+        50.0,
+        90.0
+      ],
       "mean_score": 13.65,
+      "mean_score_ci": [
+        4.55,
+        23.05
+      ],
+      "median_score": 3.0,
+      "mean_final_score_wins": 21.642857142857142,
       "mean_steps": 19.4,
-      "total_pits": 7,
+      "total_pits": 35,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 132.82777500062366
+      "mean_runtime_ms": 351.28973699997005
     },
     "random": {
       "visibility": "Partial",
-      "total_runs": 20,
+      "total_runs": 100,
+      "n_maps": 20,
+      "seeds": [
+        42,
+        123,
+        777,
+        2024,
+        31337
+      ],
       "win_rate_pct": 0.0,
-      "mean_score": -0.5,
-      "mean_steps": 32.35,
-      "total_pits": 13,
-      "wumpus_deaths": 4,
-      "mean_runtime_ms": 0.9478750000198488
+      "win_rate_ci": [
+        0.0,
+        0.0
+      ],
+      "mean_score": -3.65,
+      "mean_score_ci": [
+        -9.58,
+        2.37
+      ],
+      "median_score": 0.0,
+      "mean_final_score_wins": null,
+      "mean_steps": 31.89,
+      "total_pits": 71,
+      "wumpus_deaths": 15,
+      "mean_runtime_ms": 1.7274900003394578
     },
     "rules": {
       "visibility": "Partial",
-      "total_runs": 20,
+      "total_runs": 100,
+      "n_maps": 20,
+      "seeds": [
+        42,
+        123,
+        777,
+        2024,
+        31337
+      ],
       "win_rate_pct": 95.0,
-      "mean_score": 22.7,
-      "mean_steps": 21.55,
-      "total_pits": 2,
+      "win_rate_ci": [
+        85.0,
+        100.0
+      ],
+      "mean_score": 24.330000000000002,
+      "mean_score_ci": [
+        17.83,
+        31.05
+      ],
+      "median_score": 26.0,
+      "mean_final_score_wins": 25.347368421052632,
+      "mean_steps": 21.27,
+      "total_pits": 7,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 10.56241999976919
+      "mean_runtime_ms": 22.57619500007422
     },
     "search": {
       "visibility": "Full",
-      "total_runs": 20,
+      "total_runs": 100,
+      "n_maps": 20,
+      "seeds": [
+        42,
+        123,
+        777,
+        2024,
+        31337
+      ],
       "win_rate_pct": 100.0,
+      "win_rate_ci": [
+        100.0,
+        100.0
+      ],
       "mean_score": 41.6,
+      "mean_score_ci": [
+        37.7,
+        45.65
+      ],
+      "median_score": 36.0,
+      "mean_final_score_wins": 41.6,
       "mean_steps": 14.9,
       "total_pits": 0,
       "wumpus_deaths": 0,
-      "mean_runtime_ms": 3.527159999975993
+      "mean_runtime_ms": 11.103400999709265
     }
   }
 }

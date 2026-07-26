@@ -81,6 +81,7 @@ def main() -> int:
     bench_parser.add_argument("--generate-suite", action="store_true", help="Generate 20 test maps across 5 categories first")
     bench_parser.add_argument("--model", type=str, default="artifacts/models/random_forest.joblib", help="Path to trained model file")
     bench_parser.add_argument("--skip-ml", action="store_true", help="Run the benchmark without MLAgent")
+    bench_parser.add_argument("--seeds", type=int, nargs="+", default=None, help="One or more seeds for multi-seed benchmarking (default: 42)")
 
     args = parser.parse_args()
 
@@ -182,15 +183,17 @@ def main() -> int:
                 print(f"20 test maps generated at '{maps_path}'.")
 
         res_path = Path(args.results_dir)
+        seeds = args.seeds or [42]
         if not args.json:
-            print(f"\nRunning benchmark suite on all maps in '{maps_path}'...")
+            print(f"\nRunning benchmark suite on all maps in '{maps_path}' "
+                  f"over seed(s) {seeds}...")
         try:
             rows = run_benchmark_suite(
                 maps_path,
                 res_path,
-                seed=42,
                 model_path=Path(args.model),
                 include_ml=not args.skip_ml,
+                seeds=seeds,
             )
         except FileNotFoundError as exc:
             if args.json:
@@ -211,30 +214,41 @@ def main() -> int:
             }, indent=2))
             return 0
 
-        print("\n" + "=" * 80)
+        n_runs = next(iter(summary.values()))["total_runs"] if summary else 0
+        print("\n" + "=" * 92)
         print("🏆 WUMPUS WORLD BENCHMARK COMPARISON SUMMARY")
-        print("=" * 80)
-        header = f"{'Agent':12s} | {'Visibility':10s} | {'Win Rate':10s} | {'Diag Score':10s} | {'Mean Steps':10s} | {'Pit Entries':11s} | {'Wumpus Deaths':13s} | {'Runtime (ms)':12s}"
+        print(f"seed(s): {seeds}  ·  {n_runs} episodes per agent  ·  95% bootstrap CI")
+        print("=" * 92)
+        header = (
+            f"{'Agent':10s} | {'Vis':7s} | {'Win% (95% CI)':18s} | "
+            f"{'Diag Score':10s} | {'Final(win)':10s} | {'Steps':6s} | "
+            f"{'Pits':5s} | {'Wumpus':6s} | {'ms':8s}"
+        )
         print(header)
-        print("-" * 80)
+        print("-" * 92)
 
         for agent_name, stats in summary.items():
+            lo, hi = stats["win_rate_ci"]
+            win_str = f"{stats['win_rate_pct']:.0f}% [{lo:.0f}-{hi:.0f}]"
+            final_win = stats["mean_final_score_wins"]
+            final_str = f"{final_win:.1f}" if final_win is not None else "-"
             line = (
-                f"{agent_name:12s} | "
-                f"{stats['visibility']:10s} | "
-                f"{stats['win_rate_pct']:8.1f}% | "
+                f"{agent_name:10s} | "
+                f"{stats['visibility']:7s} | "
+                f"{win_str:18s} | "
                 f"{stats['mean_score']:10.1f} | "
-                f"{stats['mean_steps']:10.1f} | "
-                f"{stats['total_pits']:11d} | "
-                f"{stats['wumpus_deaths']:13d} | "
-                f"{stats['mean_runtime_ms']:12.2f}"
+                f"{final_str:>10s} | "
+                f"{stats['mean_steps']:6.1f} | "
+                f"{stats['total_pits']:5d} | "
+                f"{stats['wumpus_deaths']:6d} | "
+                f"{stats['mean_runtime_ms']:8.2f}"
             )
             print(line)
 
-        print("=" * 80)
+        print("=" * 92)
         print(
-            "Diag Score = mean diagnostic score over all runs; the official "
-            "final score is defined only for wins."
+            "Diag Score = mean diagnostic score over ALL runs; Final(win) = mean "
+            "official score over WINS only."
         )
         print(f"Raw results saved to '{res_path / 'benchmark_results.csv'}'.")
         print(f"JSON summary saved to '{res_path / 'benchmark_summary.json'}'.")

@@ -4,8 +4,8 @@
 
 [![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/core%20coverage-93.44%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/core%20coverage-93.94%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
@@ -20,17 +20,19 @@
 
 ## 📊 نتایج نهایی روی مجموعهٔ Holdout
 
-مدل روی ۱۰۰ نقشهٔ تولیدی با seedهای `100..199` آموزش دیده و ارزیابی نهایی روی ۲۰ نقشهٔ جدا با seedهای `2000..2019` انجام شده است. این مجموعه در انتخاب مدل استفاده نشده است.
+مدل روی ۱۰۰ نقشهٔ تولیدی با seedهای `100..199` آموزش دیده و ارزیابی نهایی روی ۲۰ نقشهٔ holdout جدا (seedهای تولید `2000..2019`) انجام شده که در انتخاب مدل استفاده نشده است. هر عامل روی این ۲۰ نقشه با **۵ seed مستقل** (جمعاً **۱۰۰ episode**) اجرا شده و **فاصلهٔ اطمینان ۹۵٪** با bootstrap روی نقشه‌ها گزارش می‌شود. ستون‌های «ورود به چاه» و «مرگ با غول» مجموع روی هر ۱۰۰ episode هستند.
 
-| عامل | میزان مشاهده | نرخ برد | میانگین امتیاز تشخیصی | میانگین گام | ورود به چاه | مرگ با غول |
-| :--- | :---: | ---: | ---: | ---: | ---: | ---: |
-| **A\* Search** | Full | **100%** | **41.6** | 14.9 | **0** | **0** |
-| **Rule-based** | Partial | **95%** | **22.7** | 21.6 | **2** | **0** |
-| **Greedy baseline** | Partial | 80% | 16.1 | **12.8** | 12 | 3 |
-| **Random Forest** | Partial | 70% | 13.7 | 19.4 | 7 | **0** |
-| **Random baseline** | Partial | 0% | -0.5 | 32.4 | 13 | 4 |
+| عامل | میزان مشاهده | نرخ برد (۹۵٪ CI) | امتیاز تشخیصی | امتیاز نهایی (برد) | میانگین گام | ورود به چاه | مرگ با غول |
+| :--- | :---: | :---: | ---: | ---: | ---: | ---: | ---: |
+| **A\* Search** | Full | **100%** [100–100] | **41.6** | 41.6 | 14.9 | **0** | **0** |
+| **Rule-based** | Partial | **95%** [85–100] | 24.3 | 25.3 | 21.3 | 7 | **0** |
+| **Greedy baseline** | Partial | 78% [65–88] | 21.6 | 21.8 | **12.6** | 37 | 19 |
+| **Random Forest** | Partial | 70% [50–90] | 13.7 | 21.6 | 19.4 | 35 | **0** |
+| **Random baseline** | Partial | 0% [0–0] | -3.6 | — | 31.9 | 71 | 15 |
 
-> 📌 **نکته:** مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
+> 📌 **نکته ۱:** مقایسهٔ A\* با عامل‌های آنلاین هم‌شرایط نیست: A\* نقشهٔ پنهان را می‌بیند و فقط نقش خبره/کران بالا دارد. مقایسهٔ منصفانهٔ آنلاین میان RuleAgent، MLAgent و baselineها است.
+>
+> 📌 **نکته ۲ (تفسیر آماری):** RuleAgent با CI `[85–100]` به‌روشنی بهترین عامل آنلاین است. اما CIهای MLAgent `[50–90]` و Greedy `[65–88]` **همپوشانی زیادی دارند**؛ پس با ۲۰ نقشه نمی‌توان گفت تفاوت این دو معنی‌دار است. نکتهٔ ایمنی: MLAgent با ماسک‌گذاری آگاه از خطر **صفر مرگ با غول** دارد، برخلاف Greedy.
 
 نتایج خام و مشخصات اجرای ثبت‌شده در [`results/`](results/) قرار دارند.
 
@@ -115,8 +117,8 @@ pytest --cov=wumpus --cov-report=term-missing
 
 </div>
 
-- **۱۲۴ تست خودکار** سبزرنگ؛
-- **پوشش ۹۳.۴۴٪** برای کد هسته؛
+- **۱۳۷ تست خودکار** سبزرنگ؛
+- **پوشش ۹۳.۹۴٪** برای کد هسته؛
 - تست و بررسی خودکار روی Python 3.11 و 3.12 در GitHub Actions.
 
 ---
@@ -188,7 +190,7 @@ python -m wumpus train --data-dir data/processed --output-dir artifacts/models
 <div dir="ltr">
 
 ```bash
-python -m wumpus benchmark --maps-dir data/maps/holdout_suite --model artifacts/models/random_forest.joblib --results-dir results
+python -m wumpus benchmark --maps-dir data/maps/holdout_suite --model artifacts/models/random_forest.joblib --results-dir results --seeds 42 123 777 2024 31337
 ```
 
 </div>
@@ -249,7 +251,7 @@ W***P***
 - دیتاست چهارکلاسه نامتوازن است و کلاس‌های `UP` و `LEFT` نمونه‌های کمتری دارند؛ بنابراین macro-F1 و recall هر کلاس در کنار accuracy گزارش شده‌اند.
 - `glitter` طبق قرارداد پروژه وجود دارد، اما چون طلا هنگام ورود خودکار جمع می‌شود، در episode عادی سیگنال تصمیم‌گیری فعالی نیست.
 - اعداد زمان اجرا به سخت‌افزار و نسخهٔ کتابخانه‌ها وابسته‌اند؛ نتیجه‌گیری اصلی بر win rate، score و معیارهای ایمنی است.
-- مجموعهٔ holdout فعلی ۲۰ نقشه دارد؛ برای ادعای تعمیم قوی‌تر باید تعداد نقشه و seedهای مستقل افزایش یابد.
+- ارزیابی روی ۵ seed مستقل با فاصلهٔ اطمینان ۹۵٪ (bootstrap روی نقشه‌ها) گزارش می‌شود، اما مجموعهٔ holdout همچنان تنها ۲۰ نقشه دارد؛ برای ادعای تعمیم قوی‌تر، افزایش تعداد نقشه‌های holdout گام بعدی است.
 
 ---
 
