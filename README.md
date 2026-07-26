@@ -2,10 +2,12 @@
 
 # 🏆 Wumpus World AI — شبیه‌ساز و بنچمارک سه روش هوش مصنوعی
 
+[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-inside_the_mind_of_an_AI-41d3dc?style=for-the-badge)](https://mahan-vzmz.github.io/Wumpus-World/demo/)
+
 [![CI](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/Wumpus-World/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/core%20coverage-93.94%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-158%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/core%20coverage-94.45%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 یک پروژهٔ دانشگاهی مهندسی‌شده برای پیاده‌سازی و مقایسهٔ سه پارادایم متفاوت هوش مصنوعی در محیط `8×8` دنیای Wumpus:
@@ -42,15 +44,25 @@
 
 ## 🎮 دموی تعاملی — پنج ذهن، یک سیاه‌چال
 
-هر پنج عامل را روی نقشه‌های یکسان گام‌به‌گام تماشا و با سوییچر **MIND** مقایسه کنید: **نقشهٔ باور زنده** برای عامل‌های دانش‌محور (امن / چاهِ مشکوک / غولِ مشکوک / قطعی)، **لاگ استدلال هم‌زمان**، آمار برنامه‌ریز A\* (با نشان «FULL MAP» و X-ray همیشه‌روشن — چون همه‌چیز را می‌بیند)، ردپای baselineها، و دکمهٔ **X-ray** برای مقایسهٔ باور با حقیقتِ پنهان — روی ۶ نقشه از آسان تا مرگبار، در **یک فایل HTML خودکفا** (بدون سرور، بدون کتابخانه؛ کافی است دابل‌کلیک کنید).
+### ▶️ [**همین حالا در مرورگر اجرا کنید — بدون نصب**](https://mahan-vzmz.github.io/Wumpus-World/demo/)
 
 <div dir="ltr">
 
-[![Interactive demo — the agent's live belief map and reasoning log](docs/assets/demo_preview.svg)](docs/demo/index.html)
+[![Interactive demo — five AI minds, live belief maps and reasoning log](docs/assets/demo_preview.svg)](https://mahan-vzmz.github.io/Wumpus-World/demo/)
 
 </div>
 
-بازتولید و اجرا:
+هر پنج عامل را روی نقشه‌های یکسان گام‌به‌گام تماشا و با سوییچر **MIND** مقایسه کنید:
+
+- 🧠 **نقشهٔ باور زنده** برای عامل‌های دانش‌محور — امن / چاهِ مشکوک / غولِ مشکوک / قطعی؛
+- 📜 **لاگ استدلال هم‌زمان** — دقیقاً همان factها و قاعده‌هایی که تصمیم را ساخته‌اند؛
+- 🎯 **آمار برنامه‌ریز A\*** — طول نقشهٔ راه، امتیاز پیش‌بینی‌شده و تعداد nodeها (با نشان «FULL MAP» و X-ray همیشه‌روشن، چون همه‌چیز را می‌بیند)؛
+- 👁️ **دکمهٔ X-ray** — مقایسهٔ باورهای عامل با حقیقتِ پنهان نقشه؛
+- 🗺️ **۶ نقشه از آسان تا مرگبار** — با یک شکست صادقانه در انتها.
+
+> 🎬 **نکتهٔ تماشایی:** در نقشهٔ **Last Stand**، عامل قاعده‌محور از یک قمار مرگبار امتناع می‌کند و جانش تمام می‌شود — اما با سوییچ به **ML Forest** می‌بینید همان نقشه فتح می‌شود.
+
+بازتولید و اجرای محلی:
 
 <div dir="ltr">
 
@@ -60,8 +72,6 @@ start docs/demo/index.html      # Windows — or just double-click the file
 ```
 
 </div>
-
-> 💡 با فعال‌کردن GitHub Pages روی پوشهٔ `docs/`، دمو به‌صورت آنلاین در `https://mahan-vzmz.github.io/Wumpus-World/demo/` در دسترس قرار می‌گیرد.
 
 ---
 
@@ -142,8 +152,8 @@ pytest --cov=wumpus --cov-report=term-missing
 
 </div>
 
-- **۱۳۷ تست خودکار** سبزرنگ؛
-- **پوشش ۹۳.۹۴٪** برای کد هسته؛
+- **۱۵۸ تست خودکار** سبزرنگ؛
+- **پوشش ۹۴.۴۵٪** برای کد هسته؛
 - تست و بررسی خودکار روی Python 3.11 و 3.12 در GitHub Actions.
 
 ---
