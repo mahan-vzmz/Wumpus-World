@@ -45,12 +45,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Wumpus World Simulator")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    # Shared flag: machine-readable JSON output (SPEC §12).
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON output"
+    )
+
     # Command: validate
-    val_parser = subparsers.add_parser("validate", help="Validate a map file")
+    val_parser = subparsers.add_parser("validate", help="Validate a map file", parents=[common])
     val_parser.add_argument("--input", required=True, type=str, help="Path to the map file")
 
     # Command: run
-    run_parser = subparsers.add_parser("run", help="Run an agent on a map")
+    run_parser = subparsers.add_parser("run", help="Run an agent on a map", parents=[common])
     run_parser.add_argument("--input", required=True, type=str, help="Path to the map file")
     run_parser.add_argument("--agent", choices=["random", "greedy", "search", "rules", "ml"], default="random", help="Which agent to run")
     run_parser.add_argument("--model", type=str, default=None, help="Path to trained model file (for ML agent)")
@@ -58,18 +64,18 @@ def main() -> int:
     run_parser.add_argument("--trace", action="store_true", help="Print reasoning trace (for rule agent)")
 
     # Command: dataset
-    ds_parser = subparsers.add_parser("dataset", help="Generate dataset from A* demonstrations")
+    ds_parser = subparsers.add_parser("dataset", help="Generate dataset from A* demonstrations", parents=[common])
     ds_parser.add_argument("--num-maps", type=int, default=20, help="Number of maps to generate")
     ds_parser.add_argument("--seed", type=int, default=100, help="Seed for dataset generation")
     ds_parser.add_argument("--output-dir", type=str, default="data/processed", help="Output directory for dataset")
 
     # Command: train
-    train_parser = subparsers.add_parser("train", help="Train ML models on dataset")
+    train_parser = subparsers.add_parser("train", help="Train ML models on dataset", parents=[common])
     train_parser.add_argument("--data-dir", type=str, default="data/processed", help="Path to dataset directory")
     train_parser.add_argument("--output-dir", type=str, default="artifacts/models", help="Output directory for saved models")
 
     # Command: benchmark
-    bench_parser = subparsers.add_parser("benchmark", help="Run comprehensive benchmark comparing all agents")
+    bench_parser = subparsers.add_parser("benchmark", help="Run comprehensive benchmark comparing all agents", parents=[common])
     bench_parser.add_argument("--maps-dir", type=str, default="data/maps/test_suite", help="Path to test maps suite")
     bench_parser.add_argument("--results-dir", type=str, default="results", help="Path to save benchmark CSV results")
     bench_parser.add_argument("--generate-suite", action="store_true", help="Generate 20 test maps across 5 categories first")
@@ -79,20 +85,35 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "dataset":
-        print(f"Generating dataset from {args.num_maps} maps (seed={args.seed})...")
+        if not args.json:
+            print(f"Generating dataset from {args.num_maps} maps (seed={args.seed})...")
         config = DatasetConfig(num_maps=args.num_maps, seed=args.seed)
         data = generate_dataset(config)
         out_path = Path(args.output_dir)
         save_dataset(out_path, data, config=config)
-        print(f"Dataset generated with {len(data['y'])} samples across {len(set(data['map_ids']))} maps.")
-        print(f"Saved to '{out_path}'.")
+        num_samples = len(data["y"])
+        num_maps = len(set(data["map_ids"]))
+        if args.json:
+            print(json.dumps({
+                "command": "dataset",
+                "num_samples": num_samples,
+                "num_maps": num_maps,
+                "output_dir": str(out_path),
+            }, indent=2))
+        else:
+            print(f"Dataset generated with {num_samples} samples across {num_maps} maps.")
+            print(f"Saved to '{out_path}'.")
         return 0
 
     elif args.command == "train":
         from wumpus.ai.dataset import load_dataset
         data_path = Path(args.data_dir)
         if not (data_path / "dataset.npz").is_file():
-            print(f"Error: Dataset not found at '{data_path}'. Run 'dataset' command first.")
+            msg = f"Dataset not found at '{data_path}'. Run 'dataset' command first."
+            if args.json:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
             return 1
 
         data = load_dataset(data_path)
@@ -108,50 +129,61 @@ def main() -> int:
             test_ratio=float(split_config.get("test_ratio", 0.15)),
         )
 
-        print(f"Dataset loaded: {len(data['y'])} samples.")
-        print(f"Splits -> Train: {len(train['y'])}, Val: {len(val['y'])}, Test: {len(test['y'])}")
-
-        print("Training models...")
         results = train_models(train, val)
         metrics = results["metrics"]
-
-        print("\n--- Validation Metrics ---")
-        for m_name, m_val in metrics.items():
-            print(f"  {m_name:15s} -> Accuracy: {m_val['accuracy']:.4f}, Macro-F1: {m_val['macro_f1']:.4f}")
 
         out_dir = Path(args.output_dir)
         rf_path = out_dir / "random_forest.joblib"
         save_model(results["models"]["random_forest"], rf_path)
         test_metrics = evaluate_classifier(results["models"]["random_forest"], test)
+        split_sizes = {
+            "train": len(train["y"]),
+            "validation": len(val["y"]),
+            "test": len(test["y"]),
+        }
         metrics_path = out_dir / "training_metrics.json"
         metrics_path.write_text(
             json.dumps(
-                {
-                    "validation": metrics,
-                    "test": test_metrics,
-                    "split_sizes": {
-                        "train": len(train["y"]),
-                        "validation": len(val["y"]),
-                        "test": len(test["y"]),
-                    },
-                },
+                {"validation": metrics, "test": test_metrics, "split_sizes": split_sizes},
                 indent=2,
             ),
             encoding="utf-8",
         )
-        print(f"\nSaved main Random Forest model to '{rf_path}'.")
-        print(f"Saved validation/test metrics to '{metrics_path}'.")
+
+        if args.json:
+            print(json.dumps({
+                "command": "train",
+                "split_sizes": split_sizes,
+                "validation": metrics,
+                "test": test_metrics,
+                "model_path": str(rf_path),
+                "metrics_path": str(metrics_path),
+            }, indent=2))
+        else:
+            print(f"Dataset loaded: {len(data['y'])} samples.")
+            print(f"Splits -> Train: {split_sizes['train']}, "
+                  f"Val: {split_sizes['validation']}, Test: {split_sizes['test']}")
+            print("Training models...")
+            print("\n--- Validation Metrics ---")
+            for m_name, m_val in metrics.items():
+                print(f"  {m_name:15s} -> Accuracy: {m_val['accuracy']:.4f}, "
+                      f"Macro-F1: {m_val['macro_f1']:.4f}")
+            print(f"\nSaved main Random Forest model to '{rf_path}'.")
+            print(f"Saved validation/test metrics to '{metrics_path}'.")
         return 0
 
     elif args.command == "benchmark":
         maps_path = Path(args.maps_dir)
         if args.generate_suite or not maps_path.exists() or not list(maps_path.glob("*.txt")):
-            print("Generating test suite maps across 5 categories...")
+            if not args.json:
+                print("Generating test suite maps across 5 categories...")
             generate_map_suite(maps_path, base_seed=500)
-            print(f"20 test maps generated at '{maps_path}'.")
+            if not args.json:
+                print(f"20 test maps generated at '{maps_path}'.")
 
         res_path = Path(args.results_dir)
-        print(f"\nRunning benchmark suite on all maps in '{maps_path}'...")
+        if not args.json:
+            print(f"\nRunning benchmark suite on all maps in '{maps_path}'...")
         try:
             rows = run_benchmark_suite(
                 maps_path,
@@ -161,10 +193,23 @@ def main() -> int:
                 include_ml=not args.skip_ml,
             )
         except FileNotFoundError as exc:
-            print(f"Error: {exc}")
+            if args.json:
+                print(json.dumps({"error": str(exc)}, indent=2))
+            else:
+                print(f"Error: {exc}")
             return 2
 
         summary = generate_summary_table(rows)
+
+        if args.json:
+            print(json.dumps({
+                "command": "benchmark",
+                "summary": summary,
+                "results_csv": str(res_path / "benchmark_results.csv"),
+                "results_json": str(res_path / "benchmark_results.json"),
+                "summary_json": str(res_path / "benchmark_summary.json"),
+            }, indent=2))
+            return 0
 
         print("\n" + "=" * 80)
         print("🏆 WUMPUS WORLD BENCHMARK COMPARISON SUMMARY")
@@ -197,22 +242,34 @@ def main() -> int:
 
     input_path = Path(args.input)
     if not input_path.is_file():
-        print(f"Error: File not found -> {input_path}")
+        msg = f"File not found -> {input_path}"
+        if args.json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            print(f"Error: {msg}")
         return 1
 
     try:
         text = input_path.read_text(encoding="utf-8")
         parsed = parse_input(text)
     except InputFormatError as e:
-        print(f"Validation Error: {e}")
+        if args.json:
+            print(json.dumps({"valid": False, "error": str(e)}, indent=2))
+        else:
+            print(f"Validation Error: {e}")
         return 1
     except Exception as e:
-        print(f"Error reading file: {e}")
+        if args.json:
+            print(json.dumps({"error": f"error reading file: {e}"}, indent=2))
+        else:
+            print(f"Error reading file: {e}")
         return 1
 
     if args.command == "validate":
-        print(f"Map '{input_path.name}' is valid.")
-        if parsed.warnings:
+        if args.json:
+            print(json.dumps({"valid": True, "warnings": list(parsed.warnings)}, indent=2))
+        else:
+            print(f"Map '{input_path.name}' is valid.")
             for w in parsed.warnings:
                 print(f"Warning: {w}")
         return 0
@@ -222,12 +279,44 @@ def main() -> int:
         try:
             agent = _create_agent(args.agent, parsed, model_path=model_p)
         except FileNotFoundError as exc:
-            print(f"Error: {exc}")
+            if args.json:
+                print(json.dumps({"error": str(exc)}, indent=2))
+            else:
+                print(f"Error: {exc}")
             return 2
 
-        print(f"Running '{args.agent}' agent on '{input_path.name}' with seed {args.seed}...")
         result = run_episode(agent, parsed.game_map, parsed.config, seed=args.seed)
         state = result.state
+        final_score = compute_score(state, parsed.config) if state.status is Status.WON else None
+
+        if args.json:
+            payload: dict = {
+                "command": "run",
+                "agent": args.agent,
+                "seed": args.seed,
+                "status": state.status.value,
+                "won": result.won,
+                "steps": state.steps,
+                "health_remaining": state.health,
+                "collected_gold": state.collected_gold,
+                "pit_entries": state.pit_entries,
+                "final_score": final_score,
+                "error": result.error,
+                "event_log": list(state.event_log),
+            }
+            if args.agent == "search" and getattr(agent, "search_result", None):
+                sr = agent.search_result
+                payload["search"] = {
+                    "expanded_nodes": sr.expanded_nodes,
+                    "peak_frontier": sr.peak_frontier,
+                    "planning_time_ms": sr.planning_time_ms,
+                }
+            if args.agent == "rules" and args.trace and hasattr(agent, "reasoning_log"):
+                payload["reasoning_trace"] = agent.reasoning_log
+            print(json.dumps(payload, indent=2))
+            return 0
+
+        print(f"Running '{args.agent}' agent on '{input_path.name}' with seed {args.seed}...")
 
         print("\n--- Event Log ---")
         for event in state.event_log:
@@ -240,9 +329,8 @@ def main() -> int:
         print(f"Gold collected: {state.collected_gold}")
         print(f"Pit entries: {state.pit_entries}")
 
-        if state.status is Status.WON:
-            score = compute_score(state, parsed.config)
-            print(f"Final score: {score}")
+        if final_score is not None:
+            print(f"Final score: {final_score}")
 
         if args.agent == "search" and hasattr(agent, "search_result"):
             sr = agent.search_result
